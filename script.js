@@ -1317,3 +1317,48 @@ window.addEventListener('DOMContentLoaded', async () => {
         progressBar.style.animationPlayState = 'running';
       }
     });
+// Elemen-elemen DOM
+const previewImg = document.getElementById('previewImg');
+const modal = document.getElementById('imageModal');
+const modalImg = document.getElementById('modalImg');
+const closeBtn = document.getElementById('closeBtn');
+const progressBar = document.getElementById('progressBar');
+
+// 1. Fungsi Buka Pop-up
+previewImg.addEventListener('click', () => {
+  modal.classList.add('active');
+  modalImg.src = previewImg.src; // Ambil gambar yang sedang tampil di preview
+  progressBar.style.animationPlayState = 'paused'; // Jeda timer 15s saat pop-up terbuka
+});
+
+// 2. Fungsi Tutup Pop-up
+function closeModal() {
+  modal.classList.remove('active');
+  progressBar.style.animationPlayState = 'running'; // Jalankan kembali timer 15s
+}
+
+// Tutup dengan klik tombol 'X'
+closeBtn.addEventListener('click', closeModal);
+
+// Tutup dengan klik di luar area gambar
+modal.addEventListener('click', (e) => {
+  if (e.target === modal) {
+    closeModal();
+  }
+});
+
+// Tutup dengan menekan tombol 'Escape' pada keyboard
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && modal.classList.contains('active')) {
+    closeModal();
+  }
+});
+
+// Otomatis pause timer jika tab browser tidak aktif
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    progressBar.style.animationPlayState = 'paused';
+  } else if (!modal.classList.contains('active')) {
+    progressBar.style.animationPlayState = 'running';
+  }
+});
