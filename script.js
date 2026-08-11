@@ -1362,3 +1362,17 @@ document.addEventListener('visibilitychange', () => {
     progressBar.style.animationPlayState = 'running';
   }
 });
+
+.modal-overlay {
+  display: none; /* Ini wajib ada agar pop-up tidak muncul sebelum diklik */
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  justify-content: center;
+  align-items: center;
+}
