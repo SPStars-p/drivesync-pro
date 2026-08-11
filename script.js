@@ -1345,16 +1345,18 @@ if (typeof files !== 'undefined' && Array.isArray(files)) {
   }
 }
 
-// Contoh fungsi rendering card file
 files.forEach(file => {
-  // 1. Cek apakah file berupa gambar (termasuk deteksi dari nama file atau mimeType)
-  const isImage = file.mimeType?.startsWith('image/') || 
-                  /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name);
+  // 1. Cek apakah file berupa gambar (mendukung file dari WhatsApp/Google Drive)
+  const isImage = (file.mimeType && file.mimeType.startsWith('image/')) || 
+                  (file.name && /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(file.name));
 
-  // 2. Tentukan sumber gambar (thumbnailLink dari Google Drive / URL file)
-  const imageSrc = file.thumbnailLink || file.webContentLink || file.url;
+  // 2. Ambil URL gambar & tingkatkan resolusinya ke kualitas tinggi
+  let imageSrc = file.thumbnailLink || file.webContentLink || '';
+  if (imageSrc && imageSrc.includes('=s220')) {
+    imageSrc = imageSrc.replace('=s220', '=s800');
+  }
 
-  // 3. Render HTML Card
+  // 3. Susun HTML Card
   const cardHTML = `
     <div class="file-card">
       <div class="card-preview">
@@ -1364,14 +1366,20 @@ files.forEach(file => {
         }
       </div>
       <div class="card-info">
-        <p class="file-name">${file.name}</p>
-        <span class="file-size">${file.size}</span>
+        <p class="file-name">${file.name || 'File Tanpa Nama'}</p>
+        <span class="file-size">${file.size || ''}</span>
       </div>
     </div>
   `;
 
-  // Masukkan ke dalam container
-  document.getElementById('fileContainer').innerHTML += cardHTML;
+  // 4. Masukkan ke wadah HTML
+  // CATATAN: Jika ID tempat menampung kartu di HTML kamu bukan 'fileContainer',
+  // ganti tulisan 'fileContainer' di bawah sesuai ID yang kamu pakai.
+  const container = document.getElementById('fileContainer');
+  if (container) {
+    container.innerHTML += cardHTML;
+  }
+});
 });
 
 const HighResThumbnail = file.thumbnailLink.replace('=s220', '=s800');
