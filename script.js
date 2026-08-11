@@ -1377,13 +1377,3 @@ document.addEventListener('visibilitychange', () => {
   align-items: center;
 }
 
-document.addEventListener('visibilitychange', () => {
-  const progressBar = document.getElementById('progressBar');
-  if (progressBar) {
-    if (document.hidden) {
-      progressBar.style.animationPlayState = 'paused';
-    } else {
-      progressBar.style.animationPlayState = 'running';
-    }
-  }
-});
