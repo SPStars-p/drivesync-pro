@@ -1373,3 +1373,5 @@ files.forEach(file => {
   // Masukkan ke dalam container
   document.getElementById('fileContainer').innerHTML += cardHTML;
 });
+
+const HighResThumbnail = file.thumbnailLink.replace('=s220', '=s800');
