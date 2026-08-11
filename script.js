@@ -1383,3 +1383,81 @@ files.forEach(file => {
 });
 
 const HighResThumbnail = file.thumbnailLink.replace('=s220', '=s800');
+
+// 1. Fungsi untuk Menyalin Link File ke Clipboard
+function copyFileLink(link) {
+  if (!link || link === '#') {
+    alert('Link file tidak ditemukan!');
+    return;
+  }
+  navigator.clipboard.writeText(link).then(() => {
+    alert('Link berhasil disalin ke clipboard!');
+  }).catch(err => {
+    console.error('Gagal menyalin link:', err);
+  });
+}
+
+// 2. Fungsi untuk Membuka Link Google Drive di Tab Baru
+function openDriveLink(link) {
+  if (!link || link === '#') {
+    alert('Link Google Drive tidak ditemukan!');
+    return;
+  }
+  window.open(link, '_blank');
+}
+
+files.forEach(file => {
+  // Cek tipe gambar
+  const isImage = (file.mimeType && file.mimeType.startsWith('image/')) || 
+                  (file.name && /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(file.name));
+
+  // Resolusi Thumbnail
+  let imageSrc = file.thumbnailLink || file.webContentLink || '';
+  if (imageSrc && imageSrc.includes('=s220')) {
+    imageSrc = imageSrc.replace('=s220', '=s800');
+  }
+
+  // Link Asli Google Drive
+  const driveLink = file.webViewLink || file.webContentLink || '#';
+
+  // Susun Card
+  const cardHTML = `
+    <div class="file-card">
+      <div class="card-preview">
+        ${isImage 
+          ? `<img src="${imageSrc}" alt="${file.name}" class="file-thumbnail" loading="lazy" />` 
+          : `<i class="doc-icon">📄</i>`
+        }
+      </div>
+      <div class="card-info">
+        <p class="file-name">${file.name || 'File Tanpa Nama'}</p>
+        <span class="file-size">${file.size || ''}</span>
+      </div>
+      
+      <!-- Bagian Tombol Aksi -->
+      <div class="card-actions">
+        <button type="button" class="btn-icon" onclick="copyFileLink('${driveLink}')" title="Copy Link">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+          </svg>
+        </button>
+        <button type="button" class="btn-icon" onclick="openDriveLink('${driveLink}')" title="Open Google Drive">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+  `;
+
+  const container = document.getElementById('fileContainer');
+  if (container) {
+    container.innerHTML += cardHTML;
+  }
+});
+
+// Contoh parameter fields pada URL fetch API Drive
+const url = `https://www.googleapis.com/drive/v3/files?fields=files(id,name,mimeType,thumbnailLink,webContentLink,webViewLink,size)&key=${API_KEY}`;
