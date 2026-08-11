@@ -186,9 +186,33 @@ function escapeHtml(str) {
 }
 
 function copyLink(url) {
-    if (!url) return;
-    navigator.clipboard.writeText(url);
-    showToast("Tautan berhasil disalin!", "success");
+    if (!url) {
+        showToast("Tautan tidak tersedia atau file belum terunggah ke Drive.", "warning");
+        return;
+    }
+    navigator.clipboard.writeText(url).then(() => {
+        showToast("Tautan berhasil disalin!", "success");
+    }).catch(() => {
+        showToast("Gagal menyalin tautan.", "error");
+    });
+}
+
+async function downloadOrOpenDrive(id) {
+    const allFiles = await getAllFilesFromDB();
+    const fileData = allFiles.find(f => f.id === id);
+    
+    if (!fileData) {
+        showToast("Data file tidak ditemukan.", "error");
+        return;
+    }
+
+    const driveUrl = fileData.webViewLink || (fileData.driveFileId ? `https://drive.google.com/file/d/${fileData.driveFileId}/view?usp=sharing` : null);
+
+    if (driveUrl) {
+        window.open(driveUrl, '_blank');
+    } else {
+        showToast("File belum selesai diunggah ke Google Drive.", "warning");
+    }
 }
 
 // --- INDEXEDDB STORAGE SYSTEM ---
@@ -857,6 +881,7 @@ function renderDriveUI(fileData, container) {
     const item = document.createElement('div');
     item.className = 'bg-slate-900/60 backdrop-blur-md p-3.5 rounded-xl border border-white/10 flex justify-between items-center gap-3 shadow-sm hover:bg-slate-800/80 transition';
     const targetAcc = accounts.find(a => a.id === fileData.targetAccountId) || accounts[4];
+    const fileLink = fileData.webViewLink || (fileData.driveFileId ? `https://drive.google.com/file/d/${fileData.driveFileId}/view?usp=sharing` : '');
 
     item.innerHTML = `
         <div class="flex items-center gap-3 overflow-hidden">
@@ -869,8 +894,8 @@ function renderDriveUI(fileData, container) {
             </div>
         </div>
         <div class="flex items-center gap-1">
-            <button onclick="showQRCodeModal('${escapeHtml(fileData.name)}', '${fileData.webViewLink}')" title="QR Code" class="text-slate-300 hover:text-purple-400 p-2 rounded-lg text-xs"><i class="fa-solid fa-qrcode"></i></button>
-            <button onclick="copyLink('${fileData.webViewLink}')" title="Salin Tautan" class="text-slate-300 hover:text-blue-400 p-2 rounded-lg text-xs"><i class="fa-solid fa-link"></i></button>
+            <button onclick="showQRCodeModal('${escapeHtml(fileData.name)}', '${fileLink}')" title="QR Code" class="text-slate-300 hover:text-purple-400 p-2 rounded-lg text-xs"><i class="fa-solid fa-qrcode"></i></button>
+            <button onclick="copyLink('${fileLink}')" title="Salin Tautan" class="text-slate-300 hover:text-blue-400 p-2 rounded-lg text-xs"><i class="fa-solid fa-link"></i></button>
             <button onclick="deleteFileFromCloudAndDB('${fileData.id}', '${fileData.driveFileId}', '${fileData.targetAccountId}')" title="Hapus Permanen dari Cloud" class="text-slate-400 hover:text-red-400 p-2 rounded-lg text-xs"><i class="fa-solid fa-trash-can"></i></button>
         </div>
     `;
@@ -921,9 +946,11 @@ async function processQueue() {
             if (progBar) progBar.style.width = `${progress}%`;
         });
 
+        const generatedLink = driveResult.webViewLink || (driveResult.id ? `https://drive.google.com/file/d/${driveResult.id}/view?usp=sharing` : null);
+
         currentFile.status = 'uploaded';
         currentFile.driveFileId = driveResult.id || null;
-        currentFile.webViewLink = driveResult.webViewLink || null;
+        currentFile.webViewLink = generatedLink;
         currentFile.fileBlob = null; 
 
         await saveFileToDB(currentFile);
@@ -1133,6 +1160,7 @@ async function deleteFolder(folderId) {
 function renderExplorerGridItem(fileData) {
     const targetAcc = accounts.find(a => a.id === fileData.targetAccountId) || accounts[4];
     const isImage = fileData.type?.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif)$/i.test(fileData.name);
+    const fileLink = fileData.webViewLink || (fileData.driveFileId ? `https://drive.google.com/file/d/${fileData.driveFileId}/view?usp=sharing` : '');
     
     const fileIcon = isImage 
         ? `<i class="fa-solid fa-file-image text-3xl text-emerald-400 group-hover:scale-110 transition-transform"></i>`
@@ -1151,8 +1179,8 @@ function renderExplorerGridItem(fileData) {
                 <div class="flex items-center justify-between pt-2 border-t border-white/10">
                     <span class="text-[9px] px-2 py-0.5 rounded border font-bold ${targetAcc.color}">${targetAcc.name.split(' ')[0]}</span>
                     <div class="flex items-center gap-1">
-                        <button onclick="showQRCodeModal('${escapeHtml(fileData.name)}', '${fileData.webViewLink}')" title="QR" class="text-slate-300 hover:text-purple-400 p-1 text-xs"><i class="fa-solid fa-qrcode"></i></button>
-                        <button onclick="copyLink('${fileData.webViewLink}')" title="Salin" class="text-slate-300 hover:text-blue-400 p-1 text-xs"><i class="fa-solid fa-link"></i></button>
+                        <button onclick="showQRCodeModal('${escapeHtml(fileData.name)}', '${fileLink}')" title="QR" class="text-slate-300 hover:text-purple-400 p-1 text-xs"><i class="fa-solid fa-qrcode"></i></button>
+                        <button onclick="copyLink('${fileLink}')" title="Salin" class="text-slate-300 hover:text-blue-400 p-1 text-xs"><i class="fa-solid fa-link"></i></button>
                         <button onclick="downloadOrOpenDrive('${fileData.id}')" title="Buka" class="text-slate-300 hover:text-blue-400 p-1 text-xs"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
                     </div>
                 </div>
@@ -1166,17 +1194,33 @@ async function openPreviewModal(id) {
     const fileData = allFiles.find(f => f.id === id);
     if (!fileData) return;
 
-    document.getElementById('preview-filename').innerText = fileData.name;
-    document.getElementById('preview-media-box').innerHTML = `<div class="text-center"><i class="fa-brands fa-google-drive text-4xl text-blue-400 mb-2"></i><p class="text-sm font-bold text-white">${escapeHtml(fileData.name)}</p></div>`;
-    document.getElementById('btn-download-preview').onclick = () => downloadOrOpenDrive(id);
-    document.getElementById('btn-copy-preview').onclick = () => copyLink(fileData.webViewLink);
-    toggleModal('modal-preview');
-}
+    const driveUrl = fileData.webViewLink || (fileData.driveFileId ? `https://drive.google.com/file/d/${fileData.driveFileId}/view?usp=sharing` : null);
 
-async function downloadOrOpenDrive(id) {
-    const allFiles = await getAllFilesFromDB();
-    const fileData = allFiles.find(f => f.id === id);
-    if (fileData && fileData.webViewLink) window.open(fileData.webViewLink, '_blank');
+    const titleEl = document.getElementById('preview-filename');
+    if (titleEl) titleEl.innerText = fileData.name;
+
+    const mediaBox = document.getElementById('preview-media-box');
+    if (mediaBox) {
+        mediaBox.innerHTML = `
+            <div class="text-center p-4">
+                <i class="fa-brands fa-google-drive text-5xl text-blue-400 mb-3"></i>
+                <p class="text-sm font-bold text-white truncate max-w-xs mx-auto">${escapeHtml(fileData.name)}</p>
+                <p class="text-xs text-slate-400 mt-1">${formatBytes(fileData.size)}</p>
+            </div>
+        `;
+    }
+
+    const btnDownload = document.getElementById('btn-download-preview');
+    if (btnDownload) {
+        btnDownload.onclick = () => downloadOrOpenDrive(id);
+    }
+
+    const btnCopy = document.getElementById('btn-copy-preview');
+    if (btnCopy) {
+        btnCopy.onclick = () => copyLink(driveUrl);
+    }
+
+    toggleModal('modal-preview');
 }
 
 function updateNetworkStatus(online) {
@@ -1198,7 +1242,7 @@ function showToast(msg, type = "info") {
     const toastMsg = document.getElementById('toast-msg');
     if (!toast || !toastMsg) return;
     toastMsg.innerText = msg;
-    toast.className = type === 'success' ? "bg-emerald-600/30 border border-emerald-500/50 text-emerald-100 p-4 rounded-xl flex items-center justify-between gap-3 text-xs md:text-sm shadow-xl" : "bg-blue-600/30 border border-blue-500/50 text-blue-100 p-4 rounded-xl flex items-center justify-between gap-3 text-xs md:text-sm shadow-xl";
+    toast.className = type === 'success' ? "bg-emerald-600/30 border border-emerald-500/50 text-emerald-100 p-4 rounded-xl flex items-center justify-between gap-3 text-xs md:text-sm shadow-xl" : (type === 'warning' ? "bg-amber-600/30 border border-amber-500/50 text-amber-100 p-4 rounded-xl flex items-center justify-between gap-3 text-xs md:text-sm shadow-xl" : "bg-blue-600/30 border border-blue-500/50 text-blue-100 p-4 rounded-xl flex items-center justify-between gap-3 text-xs md:text-sm shadow-xl");
     toast.classList.remove('hidden');
     setTimeout(() => toast.classList.add('hidden'), 4000);
 }
