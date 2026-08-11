@@ -1,0 +1,529 @@
+
+    <!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Preview Foto Mini</title>
+
+  <!-- Panggil CSS di dalam folder 'css' -->
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Atau bisa juga pakai ./css/style.css -->
+
+  <div class="mini-preview-box" id="previewBox">
+    <!-- Jika gambar ada di folder 'images' -->
+    <img id="previewImg" src="images/foto1.jpg" alt="Preview" />
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+  </div>
+
+  <!-- Panggil JS di dalam folder 'js' -->
+  <script src="js/script.js"></script>
+
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="meta-title">DriveSync Pro Ultimate - Enterprise Multi-Account AutoSync</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons CDN -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Google Identity Services Library -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- JSZip Library untuk Kompresi File -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- Chart.js & QRCode.js untuk Fitur Analisis & QR Share -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
+    <!-- Custom Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="h-screen flex flex-col md:flex-row overflow-hidden bg-transparent">
+
+    <!-- Video Latar Belakang -->
+    <div class="video-bg-container">
+        <video id="bg-video-element" autoplay loop muted playsinline class="video-bg">
+            <source id="bg-video-source" src="moonlit-blade-of-the-white-dragon.1920x1080.mp4" type="video/mp4">
+        </video>
+        <div id="video-overlay-layer" class="video-overlay"></div>
+    </div>
+
+    <!-- Sidebar Kiri -->
+    <aside class="w-full md:w-80 glass-panel border-b md:border-b-0 md:border-r border-slate-700/40 flex flex-col justify-between p-6 flex-shrink-0 overflow-y-auto z-10">
+        <div>
+            <!-- Logo Header -->
+            <div class="flex items-center justify-between mb-8">
+                <div class="flex items-center gap-3.5">
+                    <div class="p-3 bg-blue-600/30 rounded-2xl text-blue-300 backdrop-blur-md border border-blue-500/30 shadow-lg">
+                        <i class="fa-brands fa-google-drive text-2xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold text-white tracking-wide leading-tight">DriveSync Ultimate</h1>
+                        <p class="text-[11px] text-blue-300 font-medium">Enterprise Sync Engine</p>
+                    </div>
+                </div>
+                <!-- Language Switcher Toggle -->
+                <button onclick="toggleLanguage()" id="lang-toggle-btn" class="px-2.5 py-1.5 rounded-xl bg-slate-800/80 border border-white/10 text-xs font-bold text-blue-300 hover:bg-slate-700 transition" title="Ganti Bahasa">
+                    ID
+                </button>
+            </div>
+            
+            <!-- Status Multi-Akun Google dengan Quota -->
+            <div class="mb-6 p-4 bg-slate-900/50 backdrop-blur-md rounded-2xl border border-white/10 space-y-3 shadow-inner">
+                <div class="flex items-center justify-between">
+                    <span id="txt-acc-header" class="text-[11px] font-bold text-slate-300 tracking-wider">AKUN GOOGLE DRIVE</span>
+                    <span id="account-status-badge" class="bg-amber-500/20 text-amber-300 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-amber-500/30">Menunggu</span>
+                </div>
+                
+                <!-- List 5 Akun Drive -->
+                <div id="accounts-list" class="space-y-2.5 max-h-60 overflow-y-auto pr-1">
+                    <!-- Dynamic Accounts -->
+                </div>
+
+                <button id="btn-quick-setup" onclick="toggleModal('modal-config')" class="w-full mt-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold py-3 px-3 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-blue-900/40 border border-blue-400/30">
+                    <i class="fa-solid fa-key"></i> <span data-i18n="setup_btn">Atur Client ID Google</span>
+                </button>
+            </div>
+
+            <!-- Navigasi Menu Utama -->
+            <nav class="space-y-2">
+                <button id="nav-dashboard" onclick="switchView('dashboard')" class="w-full flex items-center gap-3.5 bg-blue-600/40 border border-blue-500/40 text-white px-4 py-3.5 rounded-xl font-bold text-sm transition text-left backdrop-blur-md shadow-md">
+                    <i class="fa-solid fa-cloud-arrow-up w-5 text-center text-blue-300 text-base"></i>
+                    <span data-i18n="nav_dashboard">Dashboard Sync</span>
+                </button>
+                <button id="nav-explorer" onclick="switchView('explorer')" class="w-full flex items-center gap-3.5 text-slate-300 hover:bg-white/10 hover:text-white border border-transparent hover:border-white/10 px-4 py-3.5 rounded-xl font-medium text-sm transition text-left">
+                    <i class="fa-solid fa-folder-tree w-5 text-center text-base"></i>
+                    <span data-i18n="nav_explorer">File Explorer Cloud</span>
+                </button>
+                <button id="nav-audit" onclick="switchView('audit')" class="w-full flex items-center gap-3.5 text-slate-300 hover:bg-white/10 hover:text-white border border-transparent hover:border-white/10 px-4 py-3.5 rounded-xl font-medium text-sm transition text-left">
+                    <i class="fa-solid fa-list-check w-5 text-center text-base text-emerald-400"></i>
+                    <span data-i18n="nav_audit">Audit Log Aktivitas</span>
+                </button>
+                <button onclick="toggleModal('modal-lock-setup')" class="w-full flex items-center gap-3.5 text-slate-300 hover:bg-white/10 hover:text-white border border-transparent hover:border-white/10 px-4 py-3.5 rounded-xl font-medium text-sm transition text-left">
+                    <i class="fa-solid fa-shield-halved w-5 text-center text-base text-purple-400"></i>
+                    <span data-i18n="nav_security">Keamanan Master PIN</span>
+                </button>
+                <button onclick="toggleModal('modal-config')" class="w-full flex items-center gap-3.5 text-slate-300 hover:bg-white/10 hover:text-white border border-transparent hover:border-white/10 px-4 py-3.5 rounded-xl font-medium text-sm transition text-left">
+                    <i class="fa-solid fa-sliders w-5 text-center text-base"></i>
+                    <span data-i18n="nav_settings">Pengaturan & Telegram Bot</span>
+                </button>
+            </nav>
+        </div>
+
+        <div class="mt-6 pt-4 border-t border-white/10 space-y-3">
+            <div id="network-status" class="flex items-center gap-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 font-medium text-xs backdrop-blur-md">
+                <div class="relative flex h-2.5 w-2.5">
+                  <span id="network-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span id="network-dot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
+                </div>
+                <span id="network-text">Sinyal Online (Terhubung)</span>
+            </div>
+            
+            <div class="text-[11px] text-slate-400 flex justify-between items-center px-1 font-medium">
+                <span data-i18n="idb_label">Database Offline:</span>
+                <span id="idb-status" class="text-blue-300">Aktif</span>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Konten Utama -->
+    <main class="flex-1 p-6 md:p-10 overflow-y-auto flex flex-col gap-6 z-10">
+        
+        <!-- Header Halaman -->
+        <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 glass-panel p-6 rounded-2xl shadow-xl">
+            <div>
+                <h2 id="page-title" class="text-2xl font-bold text-white tracking-wide" data-i18n="header_title">Sinkronisasi Google Drive Asli</h2>
+                <p id="page-subtitle" class="text-slate-300 text-xs md:text-sm mt-1" data-i18n="header_subtitle">Pilih atau letakkan file dari laptop. Aplikasi otomatis mengunggah ke cloud.</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="triggerManualSync()" class="bg-slate-800/80 hover:bg-slate-700 text-white text-xs px-4 py-3 rounded-xl border border-white/20 font-bold transition flex items-center gap-2 shadow-lg backdrop-blur-md">
+                    <i class="fa-solid fa-rotate text-blue-400"></i> <span data-i18n="sync_now">Sync Sekarang</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- VIEW 1: DASHBOARD SYNC -->
+        <div id="view-dashboard" class="space-y-6">
+            <!-- Toast Notification -->
+            <div id="toast-container" class="hidden bg-blue-600/30 backdrop-blur-md border border-blue-500/50 text-blue-100 p-4 rounded-xl flex items-center justify-between gap-3 text-xs md:text-sm shadow-xl">
+                <div class="flex items-center gap-3">
+                    <i id="toast-icon" class="fa-solid fa-circle-info text-lg"></i>
+                    <span id="toast-msg" class="font-medium">Pesan sistem...</span>
+                </div>
+                <button onclick="hideToast()" class="text-blue-200 hover:text-white bg-white/10 p-1.5 rounded-lg transition"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <!-- Dropzone & Storage Stats Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Dropzone Area -->
+                <div id="drop-zone" class="drop-zone lg:col-span-2 glass-panel border-2 border-dashed border-white/20 hover:border-blue-400 rounded-2xl p-10 flex flex-col items-center justify-center text-center cursor-pointer relative group shadow-xl">
+                    <div class="w-20 h-20 mb-5 bg-gradient-to-br from-blue-600/40 to-purple-600/40 text-blue-300 rounded-3xl flex items-center justify-center text-3xl border border-white/10 shadow-2xl group-hover:scale-105 transition-transform duration-300">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-2" data-i18n="drop_title">Tarik & Letakkan File di Sini</h3>
+                    <p class="text-slate-300 text-sm mb-6 max-w-md" data-i18n="drop_desc">File akan otomatis dikategorikan ke 5 akun Google Drive tujuan berdasarkan format file.</p>
+
+                    <!-- Smart Auto-Routing & Enterprise Enkripsi Options -->
+                    <div class="flex flex-wrap items-center justify-center gap-2.5 bg-slate-900/70 px-4 py-2.5 rounded-xl border border-white/10 text-xs mb-6 shadow-inner">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i>
+                            <span class="text-slate-300 font-medium" data-i18n="route_label">Target:</span>
+                            <select id="smart-route-mode" class="bg-transparent text-blue-300 font-bold focus:outline-none cursor-pointer">
+                                <option value="auto" class="bg-slate-900 text-slate-200" data-i18n="opt_auto">⚡ Smart Auto-Route</option>
+                                <option value="poco1" class="bg-slate-900 text-slate-200">🖼️ Poco1 (Foto)</option>
+                                <option value="poco2" class="bg-slate-900 text-slate-200">🎵 Poco2 (Audio)</option>
+                                <option value="poco3" class="bg-slate-900 text-slate-200">📄 Poco3 (Dokumen)</option>
+                                <option value="poco4" class="bg-slate-900 text-slate-200">📦 Poco4 (Arsip)</option>
+                                <option value="poco5" class="bg-slate-900 text-slate-200">📁 Poco5 (Lainnya)</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-1.5 border-l border-white/10 pl-3">
+                            <input type="checkbox" id="deduplication-toggle" checked class="accent-blue-500 cursor-pointer">
+                            <label for="deduplication-toggle" class="text-slate-300 cursor-pointer" data-i18n="dedup_label">Anti Duplikat Hash</label>
+                        </div>
+                        <div class="flex items-center gap-1.5 border-l border-white/10 pl-3">
+                            <input type="checkbox" id="encryption-toggle" class="accent-purple-500 cursor-pointer">
+                            <label for="encryption-toggle" class="text-purple-300 cursor-pointer font-bold"><i class="fa-solid fa-lock mr-1"></i>Enkripsi E2EE (AES-GCM)</label>
+                        </div>
+                    </div>
+
+                    <input type="file" id="file-input" class="hidden" multiple>
+                    <input type="file" id="folder-input" class="hidden" webkitdirectory directory multiple>
+
+                    <div class="flex flex-wrap items-center justify-center gap-3">
+                        <button class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-6 py-3.5 rounded-xl font-bold transition flex items-center shadow-lg shadow-blue-900/50" onclick="document.getElementById('file-input').click()">
+                            <i class="fa-solid fa-folder-open mr-2"></i> <span data-i18n="btn_files">Pilih File</span>
+                        </button>
+                        <button class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-6 py-3.5 rounded-xl font-bold transition flex items-center shadow-lg shadow-emerald-900/40" onclick="document.getElementById('folder-input').click()">
+                            <i class="fa-solid fa-folder-tree mr-2"></i> <span data-i18n="btn_folder">Unggah Satu Folder</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Storage Stats Card -->
+                <div class="glass-panel rounded-2xl p-6 flex flex-col justify-between shadow-xl">
+                    <div>
+                        <h3 class="text-sm font-bold mb-4 flex items-center justify-between text-white border-b border-white/10 pb-3 uppercase tracking-wider">
+                            <span><i class="fa-solid fa-chart-pie text-blue-400 mr-2"></i> <span data-i18n="storage_title">Analisis Penyimpanan</span></span>
+                        </h3>
+                        <!-- Storage Analytics Doughnut Chart Canvas -->
+                        <div class="relative w-full h-36 mb-4 flex items-center justify-center">
+                            <canvas id="storageChart"></canvas>
+                        </div>
+                        <div class="space-y-3 text-xs">
+                            <div class="flex justify-between items-center text-slate-300">
+                                <span data-i18n="queue_size_lbl">Ukuran Antrean:</span>
+                                <span id="total-queue-size" class="font-bold text-white bg-white/10 px-2 py-0.5 rounded-lg">0 Bytes</span>
+                            </div>
+                            <div class="flex justify-between items-center text-slate-300">
+                                <span data-i18n="pending_lbl">Pending (Offline):</span>
+                                <span id="stat-pending-count" class="font-bold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-lg">0 File</span>
+                            </div>
+                            <div class="flex justify-between items-center text-slate-300">
+                                <span data-i18n="uploaded_lbl">Telah Terunggah:</span>
+                                <span id="stat-uploaded-count" class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg">0 File</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-[11px] text-emerald-200/90 space-y-1">
+                        <p class="text-emerald-400 font-bold flex items-center"><i class="fa-solid fa-circle-check mr-1.5"></i> <span data-i18n="autobalance_title">Resumable & Chunked Active</span></p>
+                        <p data-i18n="autobalance_desc">Dukungan file besar & enkripsi lokal aktif.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Antrean & File Terunggah Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[350px]">
+                <!-- Panel Antrean -->
+                <div class="glass-panel rounded-2xl flex flex-col h-[420px] overflow-hidden shadow-xl">
+                    <div class="p-4.5 border-b border-white/10 flex justify-between items-center bg-white/5">
+                        <div class="flex items-center gap-2.5">
+                            <i class="fa-solid fa-hourglass-half text-amber-400"></i>
+                            <h3 class="font-bold text-sm text-white" data-i18n="queue_panel_title">Antrean Lokal (Auto-Retry)</h3>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span id="queue-badge" class="bg-amber-500/20 text-amber-300 px-2.5 py-1 rounded-lg text-xs font-bold border border-amber-500/30">0 File</span>
+                            <button onclick="clearAllQueue()" class="text-slate-300 hover:text-red-400 bg-white/10 hover:bg-white/20 border border-white/10 px-2.5 py-1.5 rounded-lg transition text-xs shadow-sm" title="Kosongkan Antrean">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="queue-list" class="p-4 flex-1 overflow-y-auto space-y-3">
+                        <div id="empty-queue" class="h-full flex flex-col items-center justify-center text-slate-400 space-y-3 py-10">
+                            <i class="fa-solid fa-box-open text-4xl opacity-40"></i>
+                            <p class="text-sm font-medium" data-i18n="no_queue">Tidak ada antrean file offline.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel Cloud Terunggah -->
+                <div class="glass-panel rounded-2xl flex flex-col h-[420px] overflow-hidden shadow-xl">
+                    <div class="p-4.5 border-b border-white/10 flex justify-between items-center bg-white/5">
+                        <div class="flex items-center gap-2.5">
+                            <i class="fa-brands fa-google-drive text-blue-400 text-base"></i>
+                            <h3 class="font-bold text-sm text-white" data-i18n="cloud_panel_title">Tersimpan di Cloud</h3>
+                        </div>
+                        <span id="drive-badge" class="bg-blue-500/20 text-blue-300 px-2.5 py-1 rounded-lg text-xs font-bold border border-blue-500/30">0 File</span>
+                    </div>
+                    <div id="drive-list" class="p-4 flex-1 overflow-y-auto space-y-3">
+                        <div id="empty-drive" class="h-full flex flex-col items-center justify-center text-slate-400 space-y-3 py-10">
+                            <i class="fa-solid fa-cloud-check text-4xl opacity-40"></i>
+                            <p class="text-sm font-medium" data-i18n="no_cloud">Belum ada file terunggah ke Drive.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 2: CLOUD FILE EXPLORER -->
+        <div id="view-explorer" class="hidden space-y-6">
+            <div class="glass-panel p-4.5 rounded-2xl flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 shadow-xl">
+                <div class="flex items-center gap-3 flex-wrap">
+                    <div id="explorer-account-filters" class="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
+                        <button onclick="filterExplorerByAccount('all')" class="exp-acc-btn active bg-blue-600 text-white text-xs px-4 py-2.5 rounded-xl font-bold whitespace-nowrap transition shadow-md shadow-blue-900/50">
+                            🌐 <span data-i18n="all_accounts">Semua Akun</span>
+                        </button>
+                    </div>
+
+                    <button onclick="openCreateFolderModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-4 py-2.5 rounded-xl font-bold transition flex items-center gap-2 shadow-lg shadow-emerald-900/40">
+                        <i class="fa-solid fa-folder-plus"></i> <span data-i18n="new_folder_btn">Buat Folder Baru</span>
+                    </button>
+                    <button onclick="zipSelectedFilesModal()" class="bg-purple-600 hover:bg-purple-500 text-white text-xs px-4 py-2.5 rounded-xl font-bold transition flex items-center gap-2 shadow-lg shadow-purple-900/40">
+                        <i class="fa-solid fa-file-zipper"></i> <span data-i18n="zip_btn">Buat Arsip Zip</span>
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <div class="relative flex-1 md:w-64">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400 text-xs"></i>
+                        <input type="text" id="explorer-search" oninput="renderExplorerUI()" placeholder="Cari foto, folder, dokumen..." class="w-full bg-slate-900/70 border border-white/20 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-400 shadow-inner transition">
+                    </div>
+                    <div class="flex bg-slate-900/70 border border-white/20 rounded-xl p-1 text-xs">
+                        <button id="btn-view-grid" onclick="setExplorerLayout('grid')" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg transition shadow-sm"><i class="fa-solid fa-grip text-sm"></i></button>
+                        <button id="btn-view-list" onclick="setExplorerLayout('list')" class="px-3 py-1.5 text-slate-400 hover:text-white rounded-lg transition"><i class="fa-solid fa-list text-sm"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="explorer-breadcrumb" class="flex items-center gap-2 text-xs font-medium text-slate-300 px-1">
+                <button onclick="navigateToFolder('root')" class="hover:text-blue-400 transition flex items-center gap-1.5 bg-slate-900/50 px-3 py-1.5 rounded-lg border border-white/10">
+                    <i class="fa-solid fa-house"></i> Root Cloud
+                </button>
+                <span id="breadcrumb-current" class="text-blue-400 font-bold"></span>
+            </div>
+
+            <div id="explorer-drop-area" class="border-2 border-dashed border-slate-700/60 hover:border-blue-500/50 rounded-2xl transition-all p-2">
+                <div id="explorer-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 min-h-[340px]">
+                    <!-- Dynamic Folders & Items -->
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 3: AUDIT TRAIL LOG -->
+        <div id="view-audit" class="hidden space-y-6">
+            <div class="glass-panel p-6 rounded-2xl shadow-xl space-y-4">
+                <div class="flex justify-between items-center border-b border-white/10 pb-4">
+                    <h3 class="text-base font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-list-check text-emerald-400 text-lg"></i> <span data-i18n="audit_title">Audit Log Aktivitas Sistem</span>
+                    </h3>
+                    <button onclick="clearAuditLogs()" class="px-3 py-1.5 bg-red-600/30 hover:bg-red-600/50 text-red-200 text-xs rounded-xl font-bold transition border border-red-500/30">
+                        Bersihkan Log
+                    </button>
+                </div>
+                <div id="audit-log-container" class="space-y-2 max-h-[500px] overflow-y-auto pr-2 font-mono text-xs">
+                    <!-- Dynamic Audit Logs -->
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Modal Buat Folder Baru -->
+    <div id="modal-folder" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
+        <div class="glass-panel border border-white/20 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5">
+            <div class="flex justify-between items-center border-b border-white/10 pb-4">
+                <h3 class="text-base font-bold text-white flex items-center gap-2.5">
+                    <i class="fa-solid fa-folder-plus text-emerald-400 text-lg"></i> <span data-i18n="modal_folder_title">Buat Folder Baru</span>
+                </h3>
+                <button onclick="toggleModal('modal-folder')" class="text-slate-400 hover:text-white bg-white/5 p-2 rounded-lg transition"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-2" data-i18n="folder_name_lbl">Nama Folder</label>
+                    <input type="text" id="new-folder-name" placeholder="Contoh: Foto Liburan" class="w-full bg-slate-900/80 border border-white/20 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-400 shadow-inner">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-2" data-i18n="folder_acc_lbl">Simpan di Akun Drive:</label>
+                    <select id="new-folder-account" class="w-full bg-slate-900/80 border border-white/20 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-400 cursor-pointer">
+                        <option value="poco1">Poco 1 (Foto & Video)</option>
+                        <option value="poco2">Poco 2 (Musik & Audio)</option>
+                        <option value="poco3">Poco 3 (Dokumen)</option>
+                        <option value="poco4">Poco 4 (Arsip & Backup)</option>
+                        <option value="poco5">Poco 5 (Umum / Lainnya)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 pt-2">
+                <button onclick="toggleModal('modal-folder')" class="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white text-xs rounded-xl font-bold transition" data-i18n="btn_cancel">Batal</button>
+                <button onclick="createNewFolder()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs rounded-xl font-bold shadow-lg shadow-emerald-900/40 transition" data-i18n="btn_create">Buat Folder</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Zip Files Creator -->
+    <div id="modal-zip" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
+        <div class="glass-panel border border-white/20 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5">
+            <div class="flex justify-between items-center border-b border-white/10 pb-4">
+                <h3 class="text-base font-bold text-white flex items-center gap-2.5">
+                    <i class="fa-solid fa-file-zipper text-purple-400 text-lg"></i> <span data-i18n="modal_zip_title">Kompresi File ke ZIP</span>
+                </h3>
+                <button onclick="toggleModal('modal-zip')" class="text-slate-400 hover:text-white bg-white/5 p-2 rounded-lg transition"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p class="text-xs text-slate-300" data-i18n="modal_zip_desc">Pilih beberapa file dari perangkat Anda untuk dikompresi menjadi satu file .zip sebelum diunggah:</p>
+            <input type="file" id="zip-file-input" multiple class="w-full bg-slate-900/80 border border-white/20 rounded-xl p-3 text-xs text-white focus:outline-none">
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-2" data-i18n="zip_name_lbl">Nama File ZIP:</label>
+                <input type="text" id="zip-filename" value="arsip-backup.zip" class="w-full bg-slate-900/80 border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-400">
+            </div>
+            <div class="flex justify-end gap-3 pt-2">
+                <button onclick="toggleModal('modal-zip')" class="px-5 py-2.5 bg-white/10 text-white text-xs rounded-xl font-bold" data-i18n="btn_cancel">Batal</button>
+                <button onclick="processAndUploadZip()" class="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white text-xs rounded-xl font-bold shadow-lg transition" data-i18n="btn_compress">Kompres & Unggah</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Preview File -->
+    <div id="modal-preview" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
+        <div class="glass-panel border border-white/20 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 relative">
+            <div class="flex justify-between items-center border-b border-white/10 pb-4">
+                <div class="flex items-center gap-3 overflow-hidden pr-4">
+                    <i id="preview-icon" class="fa-solid fa-file text-blue-400 text-xl"></i>
+                    <h3 id="preview-filename" class="text-base font-bold text-white truncate">Nama File</h3>
+                </div>
+                <button onclick="toggleModal('modal-preview')" class="text-slate-400 hover:text-white bg-white/5 p-2 rounded-lg transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <div id="preview-media-box" class="min-h-[250px] max-h-[60vh] bg-slate-950/70 rounded-xl border border-slate-700/80 shadow-inner flex items-center justify-center overflow-hidden p-3"></div>
+
+            <div class="flex justify-between items-center pt-2">
+                <div id="preview-file-info" class="text-xs text-slate-300"><span>Ukuran: 0 MB</span></div>
+                <div class="flex items-center gap-2">
+                    <button id="btn-copy-preview" class="bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-2"><i class="fa-solid fa-link"></i> <span data-i18n="btn_copylink">Salin Link</span></button>
+                    <button id="btn-download-preview" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-2 shadow-lg"><i class="fa-solid fa-arrow-up-right-from-square"></i> <span data-i18n="btn_opendrive">Buka Google Drive</span></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Pengaturan, Telegram, & Wallpaper URL Picker -->
+    <div id="modal-config" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
+        <div class="glass-panel border border-white/20 rounded-2xl max-w-lg w-full p-7 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-white/10 pb-4">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2.5">
+                    <i class="fa-solid fa-sliders text-blue-400 text-xl"></i> <span data-i18n="settings_modal_title">Pengaturan Lanjutan & Telegram</span>
+                </h3>
+                <button onclick="toggleModal('modal-config')" class="text-slate-400 hover:text-white bg-white/5 p-2 rounded-lg transition"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="space-y-4 text-xs">
+                <div>
+                    <label class="block font-bold text-slate-200 mb-1.5" data-i18n="cfg_client_lbl">Google Client ID (OAuth 2.0)</label>
+                    <input type="text" id="cfg-client-id" placeholder="xxxx.apps.googleusercontent.com" class="w-full bg-slate-900/80 border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-400 font-mono shadow-inner">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-slate-200 mb-1.5">Telegram Bot Token</label>
+                        <input type="text" id="cfg-tg-token" placeholder="123456:ABC-DEF..." class="w-full bg-slate-900/80 border border-white/20 rounded-xl px-3 py-2.5 text-white font-mono">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-200 mb-1.5">Telegram Chat ID</label>
+                        <input type="text" id="cfg-tg-chatid" placeholder="-100xxxxxxx" class="w-full bg-slate-900/80 border border-white/20 rounded-xl px-3 py-2.5 text-white font-mono">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-200 mb-1.5" data-i18n="cfg_bg_url_lbl">Custom Wallpaper Video URL (MP4 / WebM)</label>
+                    <input type="text" id="cfg-video-url" placeholder="https://domain.com/video.mp4" class="w-full bg-slate-900/80 border border-white/20 rounded-xl px-4 py-2.5 text-white font-mono">
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-200 mb-1.5" data-i18n="cfg_opacity_lbl">Transparansi Latar Belakang Wallpaper</label>
+                    <input type="range" id="wallpaper-opacity-slider" min="0.4" max="0.95" step="0.05" value="0.88" oninput="changeWallpaperOpacity(this.value)" class="w-full cursor-pointer accent-blue-500">
+                </div>
+
+                <div class="pt-2 border-t border-white/10 flex gap-3">
+                    <button onclick="exportConfigBackup()" class="flex-1 bg-white/10 hover:bg-white/20 text-white font-bold py-2.5 rounded-xl border border-white/10 transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-download"></i> <span data-i18n="btn_export">Ekspor JSON</span>
+                    </button>
+                    <label class="flex-1 bg-white/10 hover:bg-white/20 text-white font-bold py-2.5 rounded-xl border border-white/10 transition flex items-center justify-center gap-2 cursor-pointer">
+                        <i class="fa-solid fa-upload"></i> <span data-i18n="btn_import">Impor JSON</span>
+                        <input type="file" id="import-config-file" onchange="importConfigBackup(event)" class="hidden" accept=".json">
+                    </label>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-3 border-t border-white/10">
+                <button onclick="toggleModal('modal-config')" class="px-5 py-2.5 bg-white/10 text-white text-xs rounded-xl font-bold" data-i18n="btn_cancel">Batal</button>
+                <button onclick="saveApiConfig()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded-xl font-bold shadow-lg" data-i18n="btn_save">Simpan Pengaturan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Master PIN App Lock Setup -->
+    <div id="modal-lock-setup" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
+        <div class="glass-panel border border-white/20 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2"><i class="fa-solid fa-shield-halved text-purple-400"></i> <span data-i18n="pin_setup_title">Atur Master PIN</span></h3>
+                <button onclick="toggleModal('modal-lock-setup')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p class="text-xs text-slate-300" data-i18n="pin_setup_desc">Amankan sesi aplikasi dengan PIN 4 digit:</p>
+            <input type="password" id="input-master-pin" maxlength="6" placeholder="Masukkan PIN baru" class="w-full bg-slate-900 border border-white/20 rounded-xl px-4 py-3 text-center text-lg tracking-widest text-white focus:outline-none focus:border-purple-400">
+            <div class="flex gap-2 pt-2">
+                <button onclick="removeMasterPin()" class="flex-1 bg-red-600/30 hover:bg-red-600/50 text-red-200 text-xs py-2.5 rounded-xl font-bold" data-i18n="btn_remove_pin">Hapus PIN</button>
+                <button onclick="saveMasterPin()" class="flex-1 bg-purple-600 hover:bg-purple-500 text-white text-xs py-2.5 rounded-xl font-bold shadow-lg" data-i18n="btn_save_pin">Simpan PIN</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Screen Overlay untuk App Lock -->
+    <div id="modal-app-lock" class="hidden fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-2xl flex items-center justify-center p-4">
+        <div class="glass-panel border border-white/20 rounded-2xl max-w-sm w-full p-8 shadow-2xl text-center space-y-5">
+            <div class="w-16 h-16 bg-purple-600/30 text-purple-300 rounded-2xl flex items-center justify-center text-2xl mx-auto border border-purple-500/30 shadow-lg">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-white" data-i18n="lock_title">DriveSync Terkunci</h3>
+                <p class="text-xs text-slate-400 mt-1" data-i18n="lock_desc">Masukkan Master PIN untuk membuka aplikasi.</p>
+            </div>
+            <input type="password" id="unlock-pin" maxlength="6" placeholder="****" class="w-full bg-slate-900 border border-white/20 rounded-xl px-4 py-3 text-center text-xl tracking-widest text-white focus:outline-none focus:border-purple-400">
+            <button onclick="verifyMasterPin()" class="w-full bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold py-3 rounded-xl shadow-lg transition" data-i18n="btn_unlock">Buka Kunci</button>
+        </div>
+    </div>
+
+    <!-- MODAL: QR Code Share -->
+    <div id="modal-qrcode" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
+        <div class="glass-panel border border-white/20 rounded-2xl max-w-xs w-full p-6 shadow-2xl text-center space-y-4">
+            <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2"><i class="fa-solid fa-qrcode text-blue-400"></i> <span data-i18n="qr_modal_title">QR Code File</span></h3>
+                <button onclick="toggleModal('modal-qrcode')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="qrcode-box" class="bg-white p-4 rounded-xl inline-block mx-auto shadow-inner flex justify-center items-center"></div>
+            <p id="qr-filename" class="text-xs text-slate-300 truncate font-medium"></p>
+            <button onclick="toggleModal('modal-qrcode')" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2.5 rounded-xl" data-i18n="btn_close">Tutup</button>
+        </div>
+    </div>
+
+    <div class="mini-preview-box" id="previewBox">
+    <img id="previewImg" src="foto1.jpg" alt="Preview" />
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+  </div>
+
+    <!-- Script Utama -->
+    <script src="script.js"></script>
+</body>
+</html>
