@@ -173,45 +173,6 @@ body {
   to { transform: scale(1); }
 }
 
-.mini-preview-box {
-    position :rekative;
-    width: 150px
-    heigth: 100px;
-    overfolw: hidden;
-    border-radius: 8px;
-}
-
-.mini-preview-box img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.progress-bar-container {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.3);
-}
-
-.progress-bar {
-  height: 100%;
-  background: #0088ff;
-  width: 0%;
-  animation: timer15s 15s linear infinite;
-}
-
-@keyframes timer15s {
-  from { width: 0%; }
-  to { width: 100%; }
-}
-
-.mini-preview-box:hover .progress-bar {
-  animation-play-state: paused;
-}
-
 
 
 
