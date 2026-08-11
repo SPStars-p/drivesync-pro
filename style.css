@@ -114,3 +114,61 @@ body {
     .mini-preview-box:hover .progress-bar {
       animation-play-state: paused;
     }
+/* --- Sembunyikan Modal secara bawaan --- */
+.modal-overlay {
+  display: none; 
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.85); /* Latar belakang gelap transparan */
+  backdrop-filter: blur(8px); /* Efek blur di belakang pop-up */
+  z-index: 9999; /* Memastikan pop-up ada di paling depan */
+  justify-content: center;
+  align-items: center;
+  animation: fadeIn 0.3s ease;
+}
+
+/* Kelas untuk menampilkan modal */
+.modal-overlay.active {
+  display: flex;
+}
+
+/* Styling Gambar di dalam Pop-up */
+.modal-content {
+  max-width: 90%;
+  max-height: 85vh;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  object-fit: contain;
+  animation: zoomIn 0.3s ease;
+}
+
+/* Tombol Tutup (X) */
+.close-btn {
+  position: absolute;
+  top: 20px;
+  right: 35px;
+  color: #fff;
+  font-size: 40px;
+  font-weight: bold;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s;
+}
+
+.close-btn:hover {
+  color: #ff4d4d;
+}
+
+/* Animasi */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes zoomIn {
+  from { transform: scale(0.8); }
+  to { transform: scale(1); }
+}
