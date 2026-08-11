@@ -1317,3 +1317,32 @@ window.addEventListener('DOMContentLoaded', async () => {
         progressBar.style.animationPlayState = 'running';
       }
     });
+
+// Contoh fungsi rendering card file
+files.forEach(file => {
+  // 1. Cek apakah file berupa gambar (termasuk deteksi dari nama file atau mimeType)
+  const isImage = file.mimeType?.startsWith('image/') || 
+                  /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name);
+
+  // 2. Tentukan sumber gambar (thumbnailLink dari Google Drive / URL file)
+  const imageSrc = file.thumbnailLink || file.webContentLink || file.url;
+
+  // 3. Render HTML Card
+  const cardHTML = `
+    <div class="file-card">
+      <div class="card-preview">
+        ${isImage 
+          ? `<img src="${imageSrc}" alt="${file.name}" class="file-thumbnail" loading="lazy" />` 
+          : `<i class="doc-icon">📄</i>`
+        }
+      </div>
+      <div class="card-info">
+        <p class="file-name">${file.name}</p>
+        <span class="file-size">${file.size}</span>
+      </div>
+    </div>
+  `;
+
+  // Masukkan ke dalam container
+  document.getElementById('fileContainer').innerHTML += cardHTML;
+});
