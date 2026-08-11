@@ -1309,14 +1309,41 @@ window.addEventListener('DOMContentLoaded', async () => {
     updateNetworkStatus(navigator.onLine);
 });
 
-    document.addEventListener('visibilitychange', () => {
-      const progressBar = document.getElementById('progressBar');
-      if (document.hidden) {
-        progressBar.style.animationPlayState = 'paused';
-      } else {
-        progressBar.style.animationPlayState = 'running';
-      }
-    });
+// Pengecekan Progress Bar Aman
+const progressBar = document.getElementById('progressBar');
+if (progressBar) {
+  progressBar.style.animationPlayState = document.hidden ? 'paused' : 'running';
+}
+
+// Render Files (Kumpulkan dulu di variabel, baru tampilkan sekaligus)
+if (typeof files !== 'undefined' && Array.isArray(files)) {
+  let allCardsHTML = '';
+
+  files.forEach(file => {
+    const isImage = file.mimeType?.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif)$/i.test(file.name || '');
+    const imageSrc = file.thumbnailLink || file.webContentLink || file.url || '';
+
+    allCardsHTML += `
+      <div class="file-card">
+        <div class="card-preview">
+          ${isImage 
+            ? `<img src="${imageSrc}" alt="${file.name}" class="file-thumbnail" loading="lazy" />` 
+            : `<i class="doc-icon">📄</i>`
+          }
+        </div>
+        <div class="card-info">
+          <p class="file-name">${file.name || 'File Tanpa Nama'}</p>
+          <span class="file-size">${file.size || ''}</span>
+        </div>
+      </div>
+    `;
+  });
+
+  const container = document.getElementById('fileContainer'); // GANTI 'fileContainer' SAMA ID DI HTML KAMU
+  if (container) {
+    container.innerHTML = allCardsHTML;
+  }
+}
 
 // Contoh fungsi rendering card file
 files.forEach(file => {
