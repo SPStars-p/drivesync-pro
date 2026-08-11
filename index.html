@@ -3,13 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DriveSync Pro - Real Google Drive Multi-Account AutoSync</title>
+    <title id="meta-title">DriveSync Pro - Real Google Drive Multi-Account AutoSync</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons CDN -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <!-- Google Identity Services Library -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- JSZip Library untuk Kompresi File -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- Chart.js & QRCode.js untuk Fitur Analisis & QR Share -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -27,26 +32,24 @@
             height: 100vh;
             z-index: -10;
             overflow: hidden;
-            background-color: #020617; /* Fallback color */
+            background-color: #020617;
         }
         
         .video-bg {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            /* Opsional: Tambahkan sedikit blur pada video jika ingin UI lebih menonjol */
-            /* filter: blur(4px); */ 
         }
 
-        /* Lapisan gelap di atas video agar teks UI tetap terbaca jelas */
         .video-overlay {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(2, 6, 23, 0.5) 100%);
+            background: linear-gradient(135deg, rgba(15, 23, 42, var(--overlay-opacity, 0.88)) 0%, rgba(2, 6, 23, var(--overlay-opacity-2, 0.65)) 100%);
             z-index: 1;
+            transition: background 0.3s ease;
         }
 
         /* --- UI STYLES --- */
@@ -54,369 +57,651 @@
             transition: all 0.3s ease;
         }
         .drop-zone.dragover {
-            background-color: rgba(30, 41, 59, 0.8);
+            background-color: rgba(30, 41, 59, 0.9);
             border-color: #3b82f6;
-            transform: scale(1.02);
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+            transform: scale(1.01);
+            box-shadow: 0 0 25px rgba(59, 130, 246, 0.4);
         }
 
         .progress-bar-fill {
             transition: width 0.3s ease;
         }
 
-        /* Custom Scrollbar for Glass UI */
+        /* Custom Scrollbar */
         ::-webkit-scrollbar {
             width: 6px;
             height: 6px;
         }
         ::-webkit-scrollbar-track {
-            background: rgba(30, 41, 59, 0.3); 
+            background: rgba(30, 41, 59, 0.2); 
             border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb {
-            background: rgba(71, 85, 105, 0.8); 
+            background: rgba(71, 85, 105, 0.6); 
             border-radius: 4px;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: rgba(100, 116, 139, 1); 
+            background: rgba(100, 116, 139, 0.9); 
         }
 
-        /* Glass Panel Styling Helper */
+        /* Glass Panel Styling */
         .glass-panel {
-            background: rgba(15, 23, 42, 0.5);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.35);
         }
     </style>
 </head>
 <body class="h-screen flex flex-col md:flex-row overflow-hidden bg-transparent">
 
-    <!-- Video Latar Belakang -->
+    <!-- Video Latar Belakang (Dapat diubah via URL Picker) -->
     <div class="video-bg-container">
-        <!-- Pastikan nama file mp4 ini sama persis dengan yang ada di komputer/GitHub Anda -->
-        <video autoplay loop muted playsinline class="video-bg">
-            <source src="moonlit-blade-of-the-white-dragon.1920x1080.mp4" type="video/mp4">
+        <video id="bg-video-element" autoplay loop muted playsinline class="video-bg">
+            <source id="bg-video-source" src="moonlit-blade-of-the-white-dragon.1920x1080.mp4" type="video/mp4">
         </video>
-        <div class="video-overlay"></div>
+        <div id="video-overlay-layer" class="video-overlay"></div>
     </div>
 
-    <!-- Sidebar Left Panel -->
-    <aside class="w-full md:w-80 glass-panel border-b md:border-b-0 md:border-r border-slate-700/50 flex flex-col justify-between p-5 flex-shrink-0 overflow-y-auto z-10">
+    <!-- Sidebar Kiri -->
+    <aside class="w-full md:w-80 glass-panel border-b md:border-b-0 md:border-r border-slate-700/40 flex flex-col justify-between p-6 flex-shrink-0 overflow-y-auto z-10">
         <div>
-            <!-- Logo -->
-            <div class="flex items-center gap-3 text-2xl font-bold text-blue-400 mb-6 drop-shadow-md">
-                <div class="p-2.5 bg-blue-600/30 rounded-xl text-blue-300 backdrop-blur-md border border-blue-500/30">
-                    <i class="fa-brands fa-google-drive text-2xl shadow-blue-500/50"></i>
+            <!-- Logo Header -->
+            <div class="flex items-center justify-between mb-8">
+                <div class="flex items-center gap-3.5">
+                    <div class="p-3 bg-blue-600/30 rounded-2xl text-blue-300 backdrop-blur-md border border-blue-500/30 shadow-lg">
+                        <i class="fa-brands fa-google-drive text-2xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold text-white tracking-wide leading-tight">DriveSync Pro</h1>
+                        <p class="text-[11px] text-blue-300 font-medium">Multi-Cloud Sync Engine</p>
+                    </div>
                 </div>
-                <div>
-                    <h1 class="text-xl leading-tight text-white tracking-wide">DriveSync Pro</h1>
-                    <p class="text-[10px] text-blue-200 font-medium">Real Multi-Account Sync Engine</p>
-                </div>
+                <!-- Language Switcher Toggle -->
+                <button onclick="toggleLanguage()" id="lang-toggle-btn" class="px-2.5 py-1.5 rounded-xl bg-slate-800/80 border border-white/10 text-xs font-bold text-blue-300 hover:bg-slate-700 transition" title="Ganti Bahasa">
+                    ID
+                </button>
             </div>
             
-            <!-- Status Koneksi Multi-Account Google -->
-            <div class="mb-6 p-4 bg-slate-900/60 backdrop-blur-md rounded-xl border border-white/10 space-y-3 shadow-inner">
+            <!-- Status Multi-Akun Google dengan Quota -->
+            <div class="mb-6 p-4 bg-slate-900/50 backdrop-blur-md rounded-2xl border border-white/10 space-y-3 shadow-inner">
                 <div class="flex items-center justify-between">
-                    <span class="text-xs font-semibold text-slate-300">AKUN GOOGLE DRIVE REAL</span>
-                    <span id="account-status-badge" class="bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded text-[10px] font-bold border border-amber-500/30">Siap Dihubungkan</span>
+                    <span id="txt-acc-header" class="text-[11px] font-bold text-slate-300 tracking-wider">AKUN GOOGLE DRIVE</span>
+                    <span id="account-status-badge" class="bg-amber-500/20 text-amber-300 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-amber-500/30">Menunggu</span>
                 </div>
                 
                 <!-- List 5 Akun Drive -->
-                <div id="accounts-list" class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                <div id="accounts-list" class="space-y-2.5 max-h-60 overflow-y-auto pr-1">
                     <!-- Dynamic Accounts -->
                 </div>
 
-                <button id="btn-quick-setup" onclick="toggleModal('modal-config')" class="w-full mt-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white border border-blue-400/30 text-xs font-semibold py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-blue-900/50 hover:shadow-blue-900/80">
-                    <i class="fa-solid fa-key"></i> <span id="auth-btn-text">Atur Client ID Google</span>
+                <button id="btn-quick-setup" onclick="toggleModal('modal-config')" class="w-full mt-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold py-3 px-3 rounded-xl transition flex items-center justify-center gap-2 shadow-lg shadow-blue-900/40 border border-blue-400/30">
+                    <i class="fa-solid fa-key"></i> <span data-i18n="setup_btn">Atur Client ID Google</span>
                 </button>
             </div>
 
-            <!-- Navigation Links -->
+            <!-- Navigasi Menu Utama -->
             <nav class="space-y-2">
-                <button id="nav-dashboard" onclick="switchView('dashboard')" class="w-full flex items-center gap-3 bg-blue-600/30 border border-blue-500/30 text-blue-100 px-4 py-3 rounded-xl font-medium text-sm transition text-left backdrop-blur-sm shadow-sm">
-                    <i class="fa-solid fa-cloud-arrow-up w-5 text-center text-blue-300"></i>
-                    Dashboard Sync
+                <button id="nav-dashboard" onclick="switchView('dashboard')" class="w-full flex items-center gap-3.5 bg-blue-600/40 border border-blue-500/40 text-white px-4 py-3.5 rounded-xl font-bold text-sm transition text-left backdrop-blur-md shadow-md">
+                    <i class="fa-solid fa-cloud-arrow-up w-5 text-center text-blue-300 text-base"></i>
+                    <span data-i18n="nav_dashboard">Dashboard Sync</span>
                 </button>
-                <button id="nav-explorer" onclick="switchView('explorer')" class="w-full flex items-center gap-3 text-slate-300 hover:bg-white/10 hover:text-white border border-transparent hover:border-white/10 px-4 py-3 rounded-xl font-medium text-sm transition text-left">
-                    <i class="fa-solid fa-folder-tree w-5 text-center"></i>
-                    File Explorer Cloud
+                <button id="nav-explorer" onclick="switchView('explorer')" class="w-full flex items-center gap-3.5 text-slate-300 hover:bg-white/10 hover:text-white border border-transparent hover:border-white/10 px-4 py-3.5 rounded-xl font-medium text-sm transition text-left">
+                    <i class="fa-solid fa-folder-tree w-5 text-center text-base"></i>
+                    <span data-i18n="nav_explorer">File Explorer Cloud</span>
                 </button>
-                <button onclick="toggleModal('modal-config')" class="w-full flex items-center gap-3 text-slate-300 hover:bg-white/10 hover:text-white border border-transparent hover:border-white/10 px-4 py-3 rounded-xl font-medium text-sm transition text-left">
-                    <i class="fa-solid fa-sliders w-5 text-center"></i>
-                    Pengaturan API Google
+                <button onclick="toggleModal('modal-lock-setup')" class="w-full flex items-center gap-3.5 text-slate-300 hover:bg-white/10 hover:text-white border border-transparent hover:border-white/10 px-4 py-3.5 rounded-xl font-medium text-sm transition text-left">
+                    <i class="fa-solid fa-shield-halved w-5 text-center text-base text-purple-400"></i>
+                    <span data-i18n="nav_security">Keamanan Master PIN</span>
+                </button>
+                <button onclick="toggleModal('modal-config')" class="w-full flex items-center gap-3.5 text-slate-300 hover:bg-white/10 hover:text-white border border-transparent hover:border-white/10 px-4 py-3.5 rounded-xl font-medium text-sm transition text-left">
+                    <i class="fa-solid fa-sliders w-5 text-center text-base"></i>
+                    <span data-i18n="nav_settings">Pengaturan & Telegram Bot</span>
                 </button>
             </nav>
         </div>
 
-        <div class="mt-6 pt-4 border-t border-white/10">
-            <!-- Indikator Network -->
-            <div id="network-status" class="flex items-center gap-3 p-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 font-medium text-xs transition-all duration-300 backdrop-blur-md">
+        <div class="mt-6 pt-4 border-t border-white/10 space-y-3">
+            <div id="network-status" class="flex items-center gap-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 font-medium text-xs backdrop-blur-md">
                 <div class="relative flex h-2.5 w-2.5">
-                  <span id="network-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span id="network-dot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]"></span>
+                  <span id="network-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span id="network-dot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]"></span>
                 </div>
                 <span id="network-text">Sinyal Online (Terhubung)</span>
             </div>
             
-            <div class="mt-3 text-[11px] text-slate-400 flex justify-between items-center px-1">
-                <span>Database Offline (IndexedDB):</span>
-                <span id="idb-status" class="text-blue-300 font-medium">Aktif</span>
+            <div class="text-[11px] text-slate-400 flex justify-between items-center px-1 font-medium">
+                <span data-i18n="idb_label">Database Offline:</span>
+                <span id="idb-status" class="text-blue-300">Aktif</span>
             </div>
         </div>
     </aside>
 
     <!-- Konten Utama -->
-    <main class="flex-1 p-4 md:p-8 overflow-y-auto flex flex-col gap-6 z-10">
+    <main class="flex-1 p-6 md:p-10 overflow-y-auto flex flex-col gap-6 z-10">
         
-        <!-- Header Dashboard -->
-        <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 glass-panel p-5 rounded-2xl">
+        <!-- Header Halaman -->
+        <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 glass-panel p-6 rounded-2xl shadow-xl">
             <div>
-                <h2 id="page-title" class="text-2xl font-bold text-white tracking-wide drop-shadow-md">Sinkronisasi Google Drive Asli</h2>
-                <p id="page-subtitle" class="text-slate-300 text-xs md:text-sm mt-1">Pilih file offline. Aplikasi otomatis mengunggah langsung ke Google Drive Anda begitu internet tersambung.</p>
+                <h2 id="page-title" class="text-2xl font-bold text-white tracking-wide" data-i18n="header_title">Sinkronisasi Google Drive Asli</h2>
+                <p id="page-subtitle" class="text-slate-300 text-xs md:text-sm mt-1" data-i18n="header_subtitle">Pilih atau letakkan file dari laptop. Aplikasi otomatis mengunggah ke cloud.</p>
             </div>
-            <div class="flex items-center gap-2">
-                <button onclick="triggerManualSync()" class="bg-slate-800/80 hover:bg-slate-700/80 text-white text-xs px-4 py-2.5 rounded-xl border border-white/20 font-medium transition flex items-center gap-2 shadow-lg backdrop-blur-md">
-                    <i class="fa-solid fa-rotate text-blue-400"></i> Sync Sekarang
+            <div class="flex items-center gap-3">
+                <button onclick="triggerManualSync()" class="bg-slate-800/80 hover:bg-slate-700 text-white text-xs px-4 py-3 rounded-xl border border-white/20 font-bold transition flex items-center gap-2 shadow-lg backdrop-blur-md">
+                    <i class="fa-solid fa-rotate text-blue-400"></i> <span data-i18n="sync_now">Sync Sekarang</span>
                 </button>
             </div>
         </header>
 
-        <!-- VIEW 1: DASHBOARD SYNC (Default) -->
+        <!-- VIEW 1: DASHBOARD SYNC -->
         <div id="view-dashboard" class="space-y-6">
-            <!-- Toast Banner Notification -->
-            <div id="toast-container" class="hidden bg-blue-500/20 backdrop-blur-md border border-blue-500/50 text-blue-100 p-4 rounded-xl flex items-center justify-between gap-3 text-xs md:text-sm shadow-lg">
+            <!-- Toast Notification -->
+            <div id="toast-container" class="hidden bg-blue-600/30 backdrop-blur-md border border-blue-500/50 text-blue-100 p-4 rounded-xl flex items-center justify-between gap-3 text-xs md:text-sm shadow-xl">
                 <div class="flex items-center gap-3">
-                    <i id="toast-icon" class="fa-solid fa-circle-info text-lg drop-shadow-md"></i>
+                    <i id="toast-icon" class="fa-solid fa-circle-info text-lg"></i>
                     <span id="toast-msg" class="font-medium">Pesan sistem...</span>
                 </div>
-                <button onclick="hideToast()" class="text-blue-200 hover:text-white bg-white/10 hover:bg-white/20 p-1.5 rounded-lg transition"><i class="fa-solid fa-xmark"></i></button>
+                <button onclick="hideToast()" class="text-blue-200 hover:text-white bg-white/10 p-1.5 rounded-lg transition"><i class="fa-solid fa-xmark"></i></button>
             </div>
 
-            <!-- Drag & Drop File and Storage Stats -->
+            <!-- Dropzone & Storage Stats Grid -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- Dropzone Card -->
-                <div id="drop-zone" class="drop-zone lg:col-span-2 glass-panel border-2 border-dashed border-white/20 hover:border-blue-400 rounded-2xl p-8 flex flex-col items-center justify-center text-center cursor-pointer relative group">
-                    <div class="w-16 h-16 mb-4 bg-gradient-to-br from-blue-600/40 to-purple-600/40 text-blue-300 rounded-full flex items-center justify-center text-2xl border border-white/10 shadow-lg group-hover:scale-110 transition-transform duration-300">
-                        <i class="fa-solid fa-cloud-arrow-up drop-shadow-md"></i>
+                <!-- Dropzone Area -->
+                <div id="drop-zone" class="drop-zone lg:col-span-2 glass-panel border-2 border-dashed border-white/20 hover:border-blue-400 rounded-2xl p-10 flex flex-col items-center justify-center text-center cursor-pointer relative group shadow-xl">
+                    <div class="w-20 h-20 mb-5 bg-gradient-to-br from-blue-600/40 to-purple-600/40 text-blue-300 rounded-3xl flex items-center justify-center text-3xl border border-white/10 shadow-2xl group-hover:scale-105 transition-transform duration-300">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
                     </div>
-                    <h3 class="text-lg font-bold text-white mb-2 drop-shadow-md">Tarik & Letakkan File Laptop di Sini</h3>
-                    <p class="text-slate-300 text-sm mb-5 max-w-sm">File dikategorikan otomatis ke 5 akun Google Drive tujuan berdasarkan format file.</p>
+                    <h3 class="text-xl font-bold text-white mb-2" data-i18n="drop_title">Tarik & Letakkan File di Sini</h3>
+                    <p class="text-slate-300 text-sm mb-6 max-w-md" data-i18n="drop_desc">File akan otomatis dikategorikan ke 5 akun Google Drive tujuan berdasarkan format file.</p>
 
-                    <!-- Smart Auto-Routing Selection -->
-                    <div class="flex items-center gap-2 bg-slate-900/60 px-4 py-2 rounded-xl border border-white/10 text-xs mb-5 shadow-inner">
-                        <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i>
-                        <span class="text-slate-300">Penyaluran Target:</span>
-                        <select id="smart-route-mode" class="bg-transparent text-blue-300 font-bold focus:outline-none cursor-pointer">
-                            <option value="auto" class="bg-slate-900 text-slate-200">⚡ Smart Auto-Route (Otomatis)</option>
-                            <option value="poco1" class="bg-slate-900 text-slate-200">🖼️ Paksa ke Poco1 (Foto/Video)</option>
-                            <option value="poco2" class="bg-slate-900 text-slate-200">🎵 Paksa ke Poco2 (Musik)</option>
-                            <option value="poco3" class="bg-slate-900 text-slate-200">📄 Paksa ke Poco3 (Dokumen)</option>
-                            <option value="poco4" class="bg-slate-900 text-slate-200">📦 Paksa ke Poco4 (Arsip/ZIP)</option>
-                            <option value="poco5" class="bg-slate-900 text-slate-200">📁 Paksa ke Poco5 (Lain-Lain)</option>
-                        </select>
+                    <!-- Smart Auto-Routing & Deduplication Options -->
+                    <div class="flex flex-wrap items-center justify-center gap-2.5 bg-slate-900/70 px-4 py-2.5 rounded-xl border border-white/10 text-xs mb-6 shadow-inner">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i>
+                            <span class="text-slate-300 font-medium" data-i18n="route_label">Target:</span>
+                            <select id="smart-route-mode" class="bg-transparent text-blue-300 font-bold focus:outline-none cursor-pointer">
+                                <option value="auto" class="bg-slate-900 text-slate-200" data-i18n="opt_auto">⚡ Smart Auto-Route</option>
+                                <option value="poco1" class="bg-slate-900 text-slate-200">🖼️ Poco1 (Foto)</option>
+                                <option value="poco2" class="bg-slate-900 text-slate-200">🎵 Poco2 (Audio)</option>
+                                <option value="poco3" class="bg-slate-900 text-slate-200">📄 Poco3 (Dokumen)</option>
+                                <option value="poco4" class="bg-slate-900 text-slate-200">📦 Poco4 (Arsip)</option>
+                                <option value="poco5" class="bg-slate-900 text-slate-200">📁 Poco5 (Lainnya)</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-1.5 border-l border-white/10 pl-3">
+                            <input type="checkbox" id="deduplication-toggle" checked class="accent-blue-500 cursor-pointer">
+                            <label for="deduplication-toggle" class="text-slate-300 cursor-pointer" data-i18n="dedup_label">Anti Duplikat Hash</label>
+                        </div>
                     </div>
 
                     <input type="file" id="file-input" class="hidden" multiple>
-                    <button class="bg-white/10 hover:bg-white/20 text-white border border-white/20 text-sm px-6 py-3 rounded-xl font-bold transition flex items-center shadow-lg backdrop-blur-md" onclick="document.getElementById('file-input').click()">
-                        <i class="fa-solid fa-folder-open mr-2 text-blue-300"></i> Pilih File Dari Laptop
-                    </button>
+                    <input type="file" id="folder-input" class="hidden" webkitdirectory directory multiple>
+
+                    <div class="flex flex-wrap items-center justify-center gap-3">
+                        <button class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-6 py-3.5 rounded-xl font-bold transition flex items-center shadow-lg shadow-blue-900/50" onclick="document.getElementById('file-input').click()">
+                            <i class="fa-solid fa-folder-open mr-2"></i> <span data-i18n="btn_files">Pilih File</span>
+                        </button>
+                        <button class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm px-6 py-3.5 rounded-xl font-bold transition flex items-center shadow-lg shadow-emerald-900/40" onclick="document.getElementById('folder-input').click()">
+                            <i class="fa-solid fa-folder-tree mr-2"></i> <span data-i18n="btn_folder">Unggah Satu Folder</span>
+                        </button>
+                    </div>
                 </div>
 
-                <!-- Stats Card -->
+                <!-- Storage Stats Card -->
                 <div class="glass-panel rounded-2xl p-6 flex flex-col justify-between shadow-xl">
                     <div>
-                        <h3 class="text-base font-bold mb-4 flex items-center gap-2 text-white border-b border-white/10 pb-3">
-                            <i class="fa-solid fa-hard-drive text-blue-400"></i> Penyimpanan Lokal Laptop
+                        <h3 class="text-sm font-bold mb-4 flex items-center justify-between text-white border-b border-white/10 pb-3 uppercase tracking-wider">
+                            <span><i class="fa-solid fa-chart-pie text-blue-400 mr-2"></i> <span data-i18n="storage_title">Analisis Penyimpanan</span></span>
                         </h3>
-                        <div class="space-y-4 text-sm">
+                        <!-- Storage Analytics Doughnut Chart Canvas -->
+                        <div class="relative w-full h-36 mb-4 flex items-center justify-center">
+                            <canvas id="storageChart"></canvas>
+                        </div>
+                        <div class="space-y-3 text-xs">
                             <div class="flex justify-between items-center text-slate-300">
-                                <span>Ukuran Antrean:</span>
-                                <span id="total-queue-size" class="font-bold text-white bg-white/10 px-2 py-0.5 rounded">0 Bytes</span>
+                                <span data-i18n="queue_size_lbl">Ukuran Antrean:</span>
+                                <span id="total-queue-size" class="font-bold text-white bg-white/10 px-2 py-0.5 rounded-lg">0 Bytes</span>
                             </div>
                             <div class="flex justify-between items-center text-slate-300">
-                                <span>Pending (Offline):</span>
-                                <span id="stat-pending-count" class="font-bold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded">0 File</span>
+                                <span data-i18n="pending_lbl">Pending (Offline):</span>
+                                <span id="stat-pending-count" class="font-bold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-lg">0 File</span>
                             </div>
                             <div class="flex justify-between items-center text-slate-300">
-                                <span>Telah Terunggah:</span>
-                                <span id="stat-uploaded-count" class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded">0 File</span>
+                                <span data-i18n="uploaded_lbl">Telah Terunggah:</span>
+                                <span id="stat-uploaded-count" class="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-lg">0 File</span>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="mt-5 p-3.5 bg-emerald-900/30 border border-emerald-500/30 rounded-xl text-xs text-emerald-100/80 space-y-1.5 shadow-inner backdrop-blur-md">
-                        <p class="text-emerald-400 font-bold flex items-center"><i class="fa-solid fa-circle-check mr-1.5"></i> Hemat Ruang Penyimpanan:</p>
-                        <p class="leading-relaxed">Setelah file berstatus <strong class="text-emerald-300">Terunggah</strong>, file fisik lokal di laptop Anda aman untuk langsung dihapus.</p>
+                    <div class="mt-4 p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-[11px] text-emerald-200/90 space-y-1">
+                        <p class="text-emerald-400 font-bold flex items-center"><i class="fa-solid fa-circle-check mr-1.5"></i> <span data-i18n="autobalance_title">Auto-Balance Active</span></p>
+                        <p data-i18n="autobalance_desc">Kapasitas 5 akun Google Drive dipantau real-time.</p>
                     </div>
                 </div>
             </div>
 
             <!-- Antrean & File Terunggah Grid -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-[320px]">
-                
-                <!-- Panel Antrean Offline -->
-                <div class="glass-panel rounded-2xl flex flex-col h-[400px] overflow-hidden shadow-xl">
-                    <div class="p-4 border-b border-white/10 flex justify-between items-center bg-white/5">
-                        <div class="flex items-center gap-2">
-                            <i class="fa-solid fa-hourglass-half text-amber-400 drop-shadow-md"></i>
-                            <h3 class="font-bold text-sm text-white">Antrean Lokal</h3>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 min-h-[350px]">
+                <!-- Panel Antrean -->
+                <div class="glass-panel rounded-2xl flex flex-col h-[420px] overflow-hidden shadow-xl">
+                    <div class="p-4.5 border-b border-white/10 flex justify-between items-center bg-white/5">
+                        <div class="flex items-center gap-2.5">
+                            <i class="fa-solid fa-hourglass-half text-amber-400"></i>
+                            <h3 class="font-bold text-sm text-white" data-i18n="queue_panel_title">Antrean Lokal (Auto-Retry)</h3>
                         </div>
                         <div class="flex items-center gap-2">
-                            <span id="queue-badge" class="bg-amber-500/20 text-amber-300 px-2 py-1 rounded-md text-xs font-bold border border-amber-500/30">0 File</span>
-                            <!-- Tombol Kosongkan Antrean -->
-                            <button onclick="clearAllQueue()" class="text-slate-300 hover:text-red-400 bg-white/10 hover:bg-white/20 border border-white/10 px-2.5 py-1.5 rounded-md transition text-xs shadow-sm" title="Kosongkan Semua Antrean">
+                            <span id="queue-badge" class="bg-amber-500/20 text-amber-300 px-2.5 py-1 rounded-lg text-xs font-bold border border-amber-500/30">0 File</span>
+                            <button onclick="clearAllQueue()" class="text-slate-300 hover:text-red-400 bg-white/10 hover:bg-white/20 border border-white/10 px-2.5 py-1.5 rounded-lg transition text-xs shadow-sm" title="Kosongkan Antrean">
                                 <i class="fa-solid fa-trash-can"></i>
                             </button>
                         </div>
                     </div>
-                    <div id="queue-list" class="p-3 flex-1 overflow-y-auto space-y-3">
+                    <div id="queue-list" class="p-4 flex-1 overflow-y-auto space-y-3">
                         <div id="empty-queue" class="h-full flex flex-col items-center justify-center text-slate-400 space-y-3 py-10">
-                            <i class="fa-solid fa-box-open text-4xl opacity-50"></i>
-                            <p class="text-sm font-medium">Tidak ada antrean file offline.</p>
+                            <i class="fa-solid fa-box-open text-4xl opacity-40"></i>
+                            <p class="text-sm font-medium" data-i18n="no_queue">Tidak ada antrean file offline.</p>
                         </div>
                     </div>
                 </div>
 
-                <!-- Panel Google Drive Terunggah -->
-                <div class="glass-panel rounded-2xl flex flex-col h-[400px] overflow-hidden shadow-xl">
-                    <div class="p-4 border-b border-white/10 flex justify-between items-center bg-white/5">
-                        <div class="flex items-center gap-2">
-                            <i class="fa-brands fa-google-drive text-blue-400 drop-shadow-md text-lg"></i>
-                            <h3 class="font-bold text-sm text-white">Tersimpan di Cloud</h3>
+                <!-- Panel Cloud Terunggah -->
+                <div class="glass-panel rounded-2xl flex flex-col h-[420px] overflow-hidden shadow-xl">
+                    <div class="p-4.5 border-b border-white/10 flex justify-between items-center bg-white/5">
+                        <div class="flex items-center gap-2.5">
+                            <i class="fa-brands fa-google-drive text-blue-400 text-base"></i>
+                            <h3 class="font-bold text-sm text-white" data-i18n="cloud_panel_title">Tersimpan di Cloud</h3>
                         </div>
-                        <span id="drive-badge" class="bg-blue-500/20 text-blue-300 px-2 py-1 rounded-md text-xs font-bold border border-blue-500/30">0 File</span>
+                        <span id="drive-badge" class="bg-blue-500/20 text-blue-300 px-2.5 py-1 rounded-lg text-xs font-bold border border-blue-500/30">0 File</span>
                     </div>
-                    <div id="drive-list" class="p-3 flex-1 overflow-y-auto space-y-3">
+                    <div id="drive-list" class="p-4 flex-1 overflow-y-auto space-y-3">
                         <div id="empty-drive" class="h-full flex flex-col items-center justify-center text-slate-400 space-y-3 py-10">
-                            <i class="fa-solid fa-cloud-check text-4xl opacity-50"></i>
-                            <p class="text-sm font-medium">Belum ada file yang terunggah ke Drive.</p>
+                            <i class="fa-solid fa-cloud-check text-4xl opacity-40"></i>
+                            <p class="text-sm font-medium" data-i18n="no_cloud">Belum ada file terunggah ke Drive.</p>
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
 
         <!-- VIEW 2: CLOUD FILE EXPLORER -->
         <div id="view-explorer" class="hidden space-y-6">
-            <div class="glass-panel p-4 rounded-2xl flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 shadow-lg">
-                
-                <!-- Account Selector Pills -->
-                <div id="explorer-account-filters" class="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 custom-scrollbar">
-                    <button onclick="filterExplorerByAccount('all')" class="exp-acc-btn active bg-blue-600 text-white text-xs px-4 py-2 rounded-xl font-bold whitespace-nowrap transition shadow-md shadow-blue-900/50">
-                        🌐 Semua Akun
+            <div class="glass-panel p-4.5 rounded-2xl flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 shadow-xl">
+                <div class="flex items-center gap-3 flex-wrap">
+                    <div id="explorer-account-filters" class="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
+                        <button onclick="filterExplorerByAccount('all')" class="exp-acc-btn active bg-blue-600 text-white text-xs px-4 py-2.5 rounded-xl font-bold whitespace-nowrap transition shadow-md shadow-blue-900/50">
+                            🌐 <span data-i18n="all_accounts">Semua Akun</span>
+                        </button>
+                    </div>
+
+                    <button onclick="openCreateFolderModal()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-4 py-2.5 rounded-xl font-bold transition flex items-center gap-2 shadow-lg shadow-emerald-900/40">
+                        <i class="fa-solid fa-folder-plus"></i> <span data-i18n="new_folder_btn">Buat Folder Baru</span>
+                    </button>
+                    <button onclick="zipSelectedFilesModal()" class="bg-purple-600 hover:bg-purple-500 text-white text-xs px-4 py-2.5 rounded-xl font-bold transition flex items-center gap-2 shadow-lg shadow-purple-900/40">
+                        <i class="fa-solid fa-file-zipper"></i> <span data-i18n="zip_btn">Buat Arsip Zip</span>
                     </button>
                 </div>
 
-                <!-- Search & View Toggle -->
                 <div class="flex items-center gap-3">
                     <div class="relative flex-1 md:w-64">
-                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i>
-                        <input type="text" id="explorer-search" oninput="renderExplorerUI()" placeholder="Cari foto, lagu, dokumen..." class="w-full bg-slate-900/60 border border-white/20 rounded-xl pl-9 pr-4 py-2 text-sm text-white focus:outline-none focus:border-blue-400 focus:bg-slate-900/80 backdrop-blur-md shadow-inner transition">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400 text-xs"></i>
+                        <input type="text" id="explorer-search" oninput="renderExplorerUI()" placeholder="Cari foto, folder, dokumen..." class="w-full bg-slate-900/70 border border-white/20 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-400 shadow-inner transition">
                     </div>
-                    <div class="flex bg-slate-900/60 border border-white/20 rounded-xl p-1 text-xs backdrop-blur-md">
+                    <div class="flex bg-slate-900/70 border border-white/20 rounded-xl p-1 text-xs">
                         <button id="btn-view-grid" onclick="setExplorerLayout('grid')" class="px-3 py-1.5 bg-blue-600 text-white rounded-lg transition shadow-sm"><i class="fa-solid fa-grip text-sm"></i></button>
                         <button id="btn-view-list" onclick="setExplorerLayout('list')" class="px-3 py-1.5 text-slate-400 hover:text-white rounded-lg transition"><i class="fa-solid fa-list text-sm"></i></button>
                     </div>
                 </div>
             </div>
 
-            <!-- Explorer Grid Container -->
-            <div id="explorer-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 min-h-[350px]">
-                <!-- Dynamic Items -->
+            <div id="explorer-breadcrumb" class="flex items-center gap-2 text-xs font-medium text-slate-300 px-1">
+                <button onclick="navigateToFolder('root')" class="hover:text-blue-400 transition flex items-center gap-1.5 bg-slate-900/50 px-3 py-1.5 rounded-lg border border-white/10">
+                    <i class="fa-solid fa-house"></i> Root Cloud
+                </button>
+                <span id="breadcrumb-current" class="text-blue-400 font-bold"></span>
+            </div>
+
+            <div id="explorer-drop-area" class="border-2 border-dashed border-slate-700/60 hover:border-blue-500/50 rounded-2xl transition-all p-2">
+                <div id="explorer-container" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5 min-h-[340px]">
+                    <!-- Dynamic Folders & Items -->
+                </div>
             </div>
         </div>
 
     </main>
+
+    <!-- Modal Buat Folder Baru -->
+    <div id="modal-folder" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
+        <div class="glass-panel border border-white/20 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5">
+            <div class="flex justify-between items-center border-b border-white/10 pb-4">
+                <h3 class="text-base font-bold text-white flex items-center gap-2.5">
+                    <i class="fa-solid fa-folder-plus text-emerald-400 text-lg"></i> <span data-i18n="modal_folder_title">Buat Folder Baru</span>
+                </h3>
+                <button onclick="toggleModal('modal-folder')" class="text-slate-400 hover:text-white bg-white/5 p-2 rounded-lg transition"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-2" data-i18n="folder_name_lbl">Nama Folder</label>
+                    <input type="text" id="new-folder-name" placeholder="Contoh: Foto Liburan" class="w-full bg-slate-900/80 border border-white/20 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-400 shadow-inner">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-2" data-i18n="folder_acc_lbl">Simpan di Akun Drive:</label>
+                    <select id="new-folder-account" class="w-full bg-slate-900/80 border border-white/20 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-400 cursor-pointer">
+                        <option value="poco1">Poco 1 (Foto & Video)</option>
+                        <option value="poco2">Poco 2 (Musik & Audio)</option>
+                        <option value="poco3">Poco 3 (Dokumen)</option>
+                        <option value="poco4">Poco 4 (Arsip & Backup)</option>
+                        <option value="poco5">Poco 5 (Umum / Lainnya)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex justify-end gap-3 pt-2">
+                <button onclick="toggleModal('modal-folder')" class="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white text-xs rounded-xl font-bold transition" data-i18n="btn_cancel">Batal</button>
+                <button onclick="createNewFolder()" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs rounded-xl font-bold shadow-lg shadow-emerald-900/40 transition" data-i18n="btn_create">Buat Folder</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Zip Files Creator -->
+    <div id="modal-zip" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
+        <div class="glass-panel border border-white/20 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-5">
+            <div class="flex justify-between items-center border-b border-white/10 pb-4">
+                <h3 class="text-base font-bold text-white flex items-center gap-2.5">
+                    <i class="fa-solid fa-file-zipper text-purple-400 text-lg"></i> <span data-i18n="modal_zip_title">Kompresi File ke ZIP</span>
+                </h3>
+                <button onclick="toggleModal('modal-zip')" class="text-slate-400 hover:text-white bg-white/5 p-2 rounded-lg transition"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p class="text-xs text-slate-300" data-i18n="modal_zip_desc">Pilih beberapa file dari perangkat Anda untuk dikompresi menjadi satu file .zip sebelum diunggah:</p>
+            <input type="file" id="zip-file-input" multiple class="w-full bg-slate-900/80 border border-white/20 rounded-xl p-3 text-xs text-white focus:outline-none">
+            <div>
+                <label class="block text-xs font-bold text-slate-300 mb-2" data-i18n="zip_name_lbl">Nama File ZIP:</label>
+                <input type="text" id="zip-filename" value="arsip-backup.zip" class="w-full bg-slate-900/80 border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-400">
+            </div>
+            <div class="flex justify-end gap-3 pt-2">
+                <button onclick="toggleModal('modal-zip')" class="px-5 py-2.5 bg-white/10 text-white text-xs rounded-xl font-bold" data-i18n="btn_cancel">Batal</button>
+                <button onclick="processAndUploadZip()" class="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 text-white text-xs rounded-xl font-bold shadow-lg transition" data-i18n="btn_compress">Kompres & Unggah</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Modal Preview File -->
     <div id="modal-preview" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
         <div class="glass-panel border border-white/20 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 relative">
             <div class="flex justify-between items-center border-b border-white/10 pb-4">
                 <div class="flex items-center gap-3 overflow-hidden pr-4">
-                    <i id="preview-icon" class="fa-solid fa-file text-blue-400 text-xl drop-shadow"></i>
-                    <h3 id="preview-filename" class="text-base font-bold text-white truncate drop-shadow-md">Nama File</h3>
+                    <i id="preview-icon" class="fa-solid fa-file text-blue-400 text-xl"></i>
+                    <h3 id="preview-filename" class="text-base font-bold text-white truncate">Nama File</h3>
                 </div>
-                <button onclick="toggleModal('modal-preview')" class="text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-lg transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button onclick="toggleModal('modal-preview')" class="text-slate-400 hover:text-white bg-white/5 p-2 rounded-lg transition"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
 
-            <div id="preview-media-box" class="min-h-[250px] max-h-[60vh] bg-slate-950/60 rounded-xl border border-slate-700 shadow-inner flex items-center justify-center overflow-hidden p-2">
-                <!-- Media Content Injected via JS -->
-            </div>
+            <div id="preview-media-box" class="min-h-[250px] max-h-[60vh] bg-slate-950/70 rounded-xl border border-slate-700/80 shadow-inner flex items-center justify-center overflow-hidden p-3"></div>
 
             <div class="flex justify-between items-center pt-2">
-                <div id="preview-file-info" class="text-xs text-slate-300">
-                    <span>Ukuran: 0 MB</span> &bull; <span id="preview-acc-badge" class="text-blue-400 font-bold">Poco 1</span>
-                </div>
+                <div id="preview-file-info" class="text-xs text-slate-300"><span>Ukuran: 0 MB</span></div>
                 <div class="flex items-center gap-2">
-                    <button id="btn-copy-preview" class="bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-2 backdrop-blur-md">
-                        <i class="fa-solid fa-link"></i> Salin Link
-                    </button>
-                    <button id="btn-download-preview" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-2 shadow-lg shadow-blue-900/50">
-                        <i class="fa-solid fa-download"></i> Unduh File
-                    </button>
+                    <button id="btn-copy-preview" class="bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-2"><i class="fa-solid fa-link"></i> <span data-i18n="btn_copylink">Salin Link</span></button>
+                    <button id="btn-download-preview" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center gap-2 shadow-lg"><i class="fa-solid fa-arrow-up-right-from-square"></i> <span data-i18n="btn_opendrive">Buka Google Drive</span></button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Modal Pengaturan Google API -->
+    <!-- Modal Pengaturan, Telegram, & Wallpaper URL Picker -->
     <div id="modal-config" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
-        <div class="glass-panel border border-white/20 rounded-2xl max-w-lg w-full p-7 shadow-2xl space-y-5">
+        <div class="glass-panel border border-white/20 rounded-2xl max-w-lg w-full p-7 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center border-b border-white/10 pb-4">
-                <h3 class="text-lg font-bold text-white flex items-center gap-2 drop-shadow-md">
-                    <i class="fa-brands fa-google-drive text-blue-400 text-xl"></i> Konfigurasi API
+                <h3 class="text-lg font-bold text-white flex items-center gap-2.5">
+                    <i class="fa-solid fa-sliders text-blue-400 text-xl"></i> <span data-i18n="settings_modal_title">Pengaturan Lanjutan & Telegram</span>
                 </h3>
-                <button onclick="toggleModal('modal-config')" class="text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 p-2 rounded-lg transition"><i class="fa-solid fa-xmark"></i></button>
+                <button onclick="toggleModal('modal-config')" class="text-slate-400 hover:text-white bg-white/5 p-2 rounded-lg transition"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
-            <p class="text-sm text-slate-300 leading-relaxed">
-                Agar file dari laptop Anda benar-benar bisa terunggah ke akun Google Drive milik Anda, masukkan **Google Client ID (OAuth 2.0)** Anda di bawah ini:
-            </p>
-
-            <div class="space-y-3">
+            <div class="space-y-4 text-xs">
                 <div>
-                    <label class="block text-xs font-bold text-slate-200 mb-2">Google Client ID (OAuth Web App)</label>
-                    <input type="text" id="cfg-client-id" placeholder="Contoh: xxxx-yyyy.apps.googleusercontent.com" class="w-full bg-slate-900/80 border border-white/20 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 font-mono shadow-inner">
+                    <label class="block font-bold text-slate-200 mb-1.5" data-i18n="cfg_client_lbl">Google Client ID (OAuth 2.0)</label>
+                    <input type="text" id="cfg-client-id" placeholder="xxxx.apps.googleusercontent.com" class="w-full bg-slate-900/80 border border-white/20 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-blue-400 font-mono shadow-inner">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-slate-200 mb-1.5">Telegram Bot Token</label>
+                        <input type="text" id="cfg-tg-token" placeholder="123456:ABC-DEF..." class="w-full bg-slate-900/80 border border-white/20 rounded-xl px-3 py-2.5 text-white font-mono">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-200 mb-1.5">Telegram Chat ID</label>
+                        <input type="text" id="cfg-tg-chatid" placeholder="-100xxxxxxx" class="w-full bg-slate-900/80 border border-white/20 rounded-xl px-3 py-2.5 text-white font-mono">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-200 mb-1.5" data-i18n="cfg_bg_url_lbl">Custom Wallpaper Video URL (MP4 / WebM)</label>
+                    <input type="text" id="cfg-video-url" placeholder="https://domain.com/video.mp4" class="w-full bg-slate-900/80 border border-white/20 rounded-xl px-4 py-2.5 text-white font-mono">
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-200 mb-1.5" data-i18n="cfg_opacity_lbl">Transparansi Latar Belakang Wallpaper</label>
+                    <input type="range" id="wallpaper-opacity-slider" min="0.4" max="0.95" step="0.05" value="0.88" oninput="changeWallpaperOpacity(this.value)" class="w-full cursor-pointer accent-blue-500">
+                </div>
+
+                <div class="pt-2 border-t border-white/10 flex gap-3">
+                    <button onclick="exportConfigBackup()" class="flex-1 bg-white/10 hover:bg-white/20 text-white font-bold py-2.5 rounded-xl border border-white/10 transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-download"></i> <span data-i18n="btn_export">Ekspor JSON</span>
+                    </button>
+                    <label class="flex-1 bg-white/10 hover:bg-white/20 text-white font-bold py-2.5 rounded-xl border border-white/10 transition flex items-center justify-center gap-2 cursor-pointer">
+                        <i class="fa-solid fa-upload"></i> <span data-i18n="btn_import">Impor JSON</span>
+                        <input type="file" id="import-config-file" onchange="importConfigBackup(event)" class="hidden" accept=".json">
+                    </label>
                 </div>
             </div>
 
-            <div class="p-4 bg-slate-900/50 rounded-xl border border-white/10 text-xs text-slate-300 space-y-2 shadow-inner">
-                <p class="font-bold text-white flex items-center gap-1.5">
-                    <i class="fa-solid fa-circle-info text-blue-400"></i> Cara Mendapatkan Client ID (Gratis):
-                </p>
-                <ol class="list-decimal pl-4 space-y-1.5 opacity-90">
-                    <li>Buka <a href="https://console.cloud.google.com" target="_blank" class="text-blue-300 hover:text-blue-200 underline font-medium">Google Cloud Console</a>.</li>
-                    <li>Buat Project Baru & Aktifkan <strong>Google Drive API</strong>.</li>
-                    <li>Pada menu <strong>OAuth consent screen</strong>, pilih <i>External</i> dan isi nama aplikasi Anda.</li>
-                    <li>Pada menu <strong>Credentials</strong>, klik <i>Create Credentials &rarr; OAuth client ID</i>.</li>
-                    <li>Pilih Tipe <strong>Web application</strong>, lalu masukkan URI asal Javascript browser Anda.</li>
-                    <li>Salin Client ID yang diberikan dan tempelkan di kotak atas!</li>
-                </ol>
+            <div class="flex justify-end gap-3 pt-3 border-t border-white/10">
+                <button onclick="toggleModal('modal-config')" class="px-5 py-2.5 bg-white/10 text-white text-xs rounded-xl font-bold" data-i18n="btn_cancel">Batal</button>
+                <button onclick="saveApiConfig()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded-xl font-bold shadow-lg" data-i18n="btn_save">Simpan Pengaturan</button>
             </div>
+        </div>
+    </div>
 
-            <div class="flex justify-end gap-3 pt-3">
-                <button onclick="toggleModal('modal-config')" class="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white text-xs rounded-xl font-bold transition">Batal</button>
-                <button onclick="saveApiConfig()" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded-xl font-bold shadow-lg shadow-blue-900/50 transition">Simpan & Aktifkan</button>
+    <!-- MODAL: Master PIN App Lock Setup -->
+    <div id="modal-lock-setup" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
+        <div class="glass-panel border border-white/20 rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+            <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2"><i class="fa-solid fa-shield-halved text-purple-400"></i> <span data-i18n="pin_setup_title">Atur Master PIN</span></h3>
+                <button onclick="toggleModal('modal-lock-setup')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
             </div>
+            <p class="text-xs text-slate-300" data-i18n="pin_setup_desc">Amankan sesi aplikasi dengan PIN 4 digit:</p>
+            <input type="password" id="input-master-pin" maxlength="6" placeholder="Masukkan PIN baru" class="w-full bg-slate-900 border border-white/20 rounded-xl px-4 py-3 text-center text-lg tracking-widest text-white focus:outline-none focus:border-purple-400">
+            <div class="flex gap-2 pt-2">
+                <button onclick="removeMasterPin()" class="flex-1 bg-red-600/30 hover:bg-red-600/50 text-red-200 text-xs py-2.5 rounded-xl font-bold" data-i18n="btn_remove_pin">Hapus PIN</button>
+                <button onclick="saveMasterPin()" class="flex-1 bg-purple-600 hover:bg-purple-500 text-white text-xs py-2.5 rounded-xl font-bold shadow-lg" data-i18n="btn_save_pin">Simpan PIN</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Screen Overlay untuk App Lock -->
+    <div id="modal-app-lock" class="hidden fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-2xl flex items-center justify-center p-4">
+        <div class="glass-panel border border-white/20 rounded-2xl max-w-sm w-full p-8 shadow-2xl text-center space-y-5">
+            <div class="w-16 h-16 bg-purple-600/30 text-purple-300 rounded-2xl flex items-center justify-center text-2xl mx-auto border border-purple-500/30 shadow-lg">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-white" data-i18n="lock_title">DriveSync Terkunci</h3>
+                <p class="text-xs text-slate-400 mt-1" data-i18n="lock_desc">Masukkan Master PIN untuk membuka aplikasi.</p>
+            </div>
+            <input type="password" id="unlock-pin" maxlength="6" placeholder="****" class="w-full bg-slate-900 border border-white/20 rounded-xl px-4 py-3 text-center text-xl tracking-widest text-white focus:outline-none focus:border-purple-400">
+            <button onclick="verifyMasterPin()" class="w-full bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold py-3 rounded-xl shadow-lg transition" data-i18n="btn_unlock">Buka Kunci</button>
+        </div>
+    </div>
+
+    <!-- MODAL: QR Code Share -->
+    <div id="modal-qrcode" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xl flex items-center justify-center p-4">
+        <div class="glass-panel border border-white/20 rounded-2xl max-w-xs w-full p-6 shadow-2xl text-center space-y-4">
+            <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                <h3 class="text-sm font-bold text-white flex items-center gap-2"><i class="fa-solid fa-qrcode text-blue-400"></i> <span data-i18n="qr_modal_title">QR Code File</span></h3>
+                <button onclick="toggleModal('modal-qrcode')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="qrcode-box" class="bg-white p-4 rounded-xl inline-block mx-auto shadow-inner flex justify-center items-center"></div>
+            <p id="qr-filename" class="text-xs text-slate-300 truncate font-medium"></p>
+            <button onclick="toggleModal('modal-qrcode')" class="w-full bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold py-2.5 rounded-xl" data-i18n="btn_close">Tutup</button>
         </div>
     </div>
 
     <script>
-        // Global Application State & Storage Keys
+        // --- MULTI-LANGUAGE DICTIONARY (i18n) ---
+        const i18n = {
+            id: {
+                meta_title: "DriveSync Pro - Real Google Drive Multi-Account AutoSync",
+                setup_btn: "Atur Client ID Google",
+                nav_dashboard: "Dashboard Sync",
+                nav_explorer: "File Explorer Cloud",
+                nav_security: "Keamanan Master PIN",
+                nav_settings: "Pengaturan & Telegram Bot",
+                idb_label: "Database Offline:",
+                header_title: "Sinkronisasi Google Drive Asli",
+                header_subtitle: "Pilih atau letakkan file dari laptop. Aplikasi otomatis mengunggah ke cloud.",
+                sync_now: "Sync Sekarang",
+                drop_title: "Tarik & Letakkan File di Sini",
+                drop_desc: "File akan otomatis dikategorikan ke 5 akun Google Drive tujuan berdasarkan format file.",
+                route_label: "Target:",
+                opt_auto: "⚡ Smart Auto-Route",
+                dedup_label: "Anti Duplikat Hash",
+                btn_files: "Pilih File",
+                btn_folder: "Unggah Satu Folder",
+                storage_title: "Analisis Penyimpanan",
+                queue_size_lbl: "Ukuran Antrean:",
+                pending_lbl: "Pending (Offline):",
+                uploaded_lbl: "Telah Terunggah:",
+                autobalance_title: "Auto-Balance Active",
+                autobalance_desc: "Kapasitas 5 akun Google Drive dipantau real-time.",
+                queue_panel_title: "Antrean Lokal (Auto-Retry)",
+                no_queue: "Tidak ada antrean file offline.",
+                cloud_panel_title: "Tersimpan di Cloud",
+                no_cloud: "Belum ada file terunggah ke Drive.",
+                all_accounts: "Semua Akun",
+                new_folder_btn: "Buat Folder Baru",
+                zip_btn: "Buat Arsip Zip",
+                modal_folder_title: "Buat Folder Baru",
+                folder_name_lbl: "Nama Folder",
+                folder_acc_lbl: "Simpan di Akun Drive:",
+                btn_cancel: "Batal",
+                btn_create: "Buat Folder",
+                modal_zip_title: "Kompresi File ke ZIP",
+                modal_zip_desc: "Pilih beberapa file dari perangkat Anda untuk dikompresi menjadi satu file .zip sebelum diunggah:",
+                zip_name_lbl: "Nama File ZIP:",
+                btn_compress: "Kompres & Unggah",
+                btn_copylink: "Salin Link",
+                btn_opendrive: "Buka Google Drive",
+                settings_modal_title: "Pengaturan Lanjutan & Telegram",
+                cfg_client_lbl: "Google Client ID (OAuth 2.0)",
+                cfg_bg_url_lbl: "Custom Wallpaper Video URL (MP4 / WebM)",
+                cfg_opacity_lbl: "Transparansi Latar Belakang Wallpaper",
+                btn_export: "Ekspor JSON",
+                btn_import: "Impor JSON",
+                btn_save: "Simpan Pengaturan",
+                pin_setup_title: "Atur Master PIN",
+                pin_setup_desc: "Amankan sesi aplikasi dengan PIN 4 digit:",
+                btn_remove_pin: "Hapus PIN",
+                btn_save_pin: "Simpan PIN",
+                lock_title: "DriveSync Terkunci",
+                lock_desc: "Masukkan Master PIN untuk membuka aplikasi.",
+                btn_unlock: "Buka Kunci",
+                qr_modal_title: "QR Code File",
+                btn_close: "Tutup"
+            },
+            en: {
+                meta_title: "DriveSync Pro - Real Google Drive Multi-Account AutoSync",
+                setup_btn: "Setup Google Client ID",
+                nav_dashboard: "Dashboard Sync",
+                nav_explorer: "Cloud File Explorer",
+                nav_security: "Master PIN Security",
+                nav_settings: "Settings & Telegram Bot",
+                idb_label: "Offline DB:",
+                header_title: "Real Google Drive AutoSync",
+                header_subtitle: "Drag and drop files from your computer. The app automatically syncs them to the cloud.",
+                sync_now: "Sync Now",
+                drop_title: "Drag & Drop Files Here",
+                drop_desc: "Files are automatically routed across 5 Google Drive accounts based on file type.",
+                route_label: "Target:",
+                opt_auto: "⚡ Smart Auto-Route",
+                dedup_label: "Hash Anti-Duplication",
+                btn_files: "Select Files",
+                btn_folder: "Upload Full Folder",
+                storage_title: "Storage Analytics",
+                queue_size_lbl: "Queue Size:",
+                pending_lbl: "Pending (Offline):",
+                uploaded_lbl: "Successfully Uploaded:",
+                autobalance_title: "Auto-Balance Active",
+                autobalance_desc: "Monitoring 5 Google Drive capacities in real-time.",
+                queue_panel_title: "Local Queue (Auto-Retry)",
+                no_queue: "No offline file queue.",
+                cloud_panel_title: "Stored in Cloud",
+                no_cloud: "No files uploaded to Drive yet.",
+                all_accounts: "All Accounts",
+                new_folder_btn: "Create New Folder",
+                zip_btn: "Create Zip Archive",
+                modal_folder_title: "Create New Folder",
+                folder_name_lbl: "Folder Name",
+                folder_acc_lbl: "Save in Drive Account:",
+                btn_cancel: "Cancel",
+                btn_create: "Create Folder",
+                modal_zip_title: "Compress Files to ZIP",
+                modal_zip_desc: "Select multiple files from your device to compress into a .zip file before uploading:",
+                zip_name_lbl: "ZIP Filename:",
+                btn_compress: "Compress & Upload",
+                btn_copylink: "Copy Link",
+                btn_opendrive: "Open Google Drive",
+                settings_modal_title: "Advanced Settings & Telegram",
+                cfg_client_lbl: "Google Client ID (OAuth 2.0)",
+                cfg_bg_url_lbl: "Custom Wallpaper Video URL (MP4 / WebM)",
+                cfg_opacity_lbl: "Wallpaper Background Opacity",
+                btn_export: "Export JSON",
+                btn_import: "Import JSON",
+                btn_save: "Save Settings",
+                pin_setup_title: "Setup Master PIN",
+                pin_setup_desc: "Secure app session with a 4-digit PIN:",
+                btn_remove_pin: "Remove PIN",
+                btn_save_pin: "Save PIN",
+                lock_title: "DriveSync Locked",
+                lock_desc: "Enter Master PIN to unlock the application.",
+                btn_unlock: "Unlock",
+                qr_modal_title: "File QR Code",
+                btn_close: "Close"
+            }
+        };
+
+        let currentLang = localStorage.getItem('drivesync_lang') || 'id';
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'id' ? 'en' : 'id';
+            localStorage.setItem('drivesync_lang', currentLang);
+            document.getElementById('lang-toggle-btn').innerText = currentLang.toUpperCase();
+            applyTranslations();
+        }
+
+        function applyTranslations() {
+            const dict = i18n[currentLang];
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (dict[key]) el.innerText = dict[key];
+            });
+            document.getElementById('meta-title').innerText = dict.meta_title;
+        }
+
         let config = {
             clientId: localStorage.getItem('gdrive_client_id') || '',
+            wallpaperOpacity: localStorage.getItem('gdrive_wallpaper_opacity') || '0.88',
+            videoUrl: localStorage.getItem('gdrive_video_url') || '',
+            telegramToken: localStorage.getItem('gdrive_tg_token') || '',
+            telegramChatId: localStorage.getItem('gdrive_tg_chatid') || '',
             scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile'
         };
 
         let accounts = JSON.parse(localStorage.getItem('gdrive_multi_accounts')) || [
-            { id: 'poco1', name: 'Poco 1 (Foto & Video)', email: 'Belum Terhubung', category: 'media', icon: 'fa-image', color: 'text-purple-300 bg-purple-500/20 border-purple-500/40', token: null, tokenExpiresAt: 0, userProfile: null },
-            { id: 'poco2', name: 'Poco 2 (Musik & Audio)', email: 'Belum Terhubung', category: 'music', icon: 'fa-music', color: 'text-emerald-300 bg-emerald-500/20 border-emerald-500/40', token: null, tokenExpiresAt: 0, userProfile: null },
-            { id: 'poco3', name: 'Poco 3 (Dokumen)', email: 'Belum Terhubung', category: 'docs', icon: 'fa-file-lines', color: 'text-amber-300 bg-amber-500/20 border-amber-500/40', token: null, tokenExpiresAt: 0, userProfile: null },
-            { id: 'poco4', name: 'Poco 4 (Arsip & Backup)', email: 'Belum Terhubung', category: 'archive', icon: 'fa-file-zipper', color: 'text-pink-300 bg-pink-500/20 border-pink-500/40', token: null, tokenExpiresAt: 0, userProfile: null },
-            { id: 'poco5', name: 'Poco 5 (Umum / Lainnya)', email: 'Belum Terhubung', category: 'general', icon: 'fa-hard-drive', color: 'text-blue-300 bg-blue-500/20 border-blue-500/40', token: null, tokenExpiresAt: 0, userProfile: null },
+            { id: 'poco1', name: 'Poco 1 (Foto & Video)', email: 'Belum Terhubung', category: 'media', icon: 'fa-image', color: 'text-purple-300 bg-purple-500/20 border-purple-500/40', token: null, tokenExpiresAt: 0, quota: null },
+            { id: 'poco2', name: 'Poco 2 (Musik & Audio)', email: 'Belum Terhubung', category: 'music', icon: 'fa-music', color: 'text-emerald-300 bg-emerald-500/20 border-emerald-500/40', token: null, tokenExpiresAt: 0, quota: null },
+            { id: 'poco3', name: 'Poco 3 (Dokumen)', email: 'Belum Terhubung', category: 'docs', icon: 'fa-file-lines', color: 'text-amber-300 bg-amber-500/20 border-amber-500/40', token: null, tokenExpiresAt: 0, quota: null },
+            { id: 'poco4', name: 'Poco 4 (Arsip & Backup)', email: 'Belum Terhubung', category: 'archive', icon: 'fa-file-zipper', color: 'text-pink-300 bg-pink-500/20 border-pink-500/40', token: null, tokenExpiresAt: 0, quota: null },
+            { id: 'poco5', name: 'Poco 5 (Umum / Lainnya)', email: 'Belum Terhubung', category: 'general', icon: 'fa-hard-drive', color: 'text-blue-300 bg-blue-500/20 border-blue-500/40', token: null, tokenExpiresAt: 0, quota: null },
         ];
 
         let isOnline = navigator.onLine;
@@ -426,100 +711,197 @@
         let activeView = 'dashboard';
         let currentAccountFilter = 'all';
         let explorerLayout = 'grid';
+        let currentFolderId = 'root'; 
+        let storageChartInstance = null;
 
-        function isTokenValid(acc) {
-            if (!acc || !acc.token) return false;
-            if (!acc.tokenExpiresAt) return true;
-            return Date.now() < acc.tokenExpiresAt;
+        function initStorageChart() {
+            const ctx = document.getElementById('storageChart');
+            if (!ctx) return;
+            storageChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: accounts.map(a => a.name.split(' ')[0]),
+                    datasets: [{
+                        data: [20, 20, 20, 20, 20],
+                        backgroundColor: ['#c084fc', '#34d399', '#fbbf24', '#f472b6', '#60a5fa'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    cutout: '70%'
+                }
+            });
         }
 
-        function initIndexedDB() {
-            return new Promise((resolve, reject) => {
-                const request = indexedDB.open('DriveSyncRealDB', 1);
-                request.onupgradeneeded = (e) => {
-                    const database = e.target.result;
-                    if (!database.objectStoreNames.contains('sync_queue')) {
-                        database.createObjectStore('sync_queue', { keyPath: 'id' });
+        function updateStorageChartData() {
+            if (!storageChartInstance) return;
+            const data = accounts.map(acc => acc.quota ? Math.round(acc.quota.usage / (1024*1024)) : 1);
+            storageChartInstance.data.datasets[0].data = data;
+            storageChartInstance.update();
+        }
+
+        function saveMasterPin() {
+            const pin = document.getElementById('input-master-pin').value.trim();
+            if (!pin) { showToast("PIN tidak boleh kosong.", "warning"); return; }
+            localStorage.setItem('drive_master_pin', pin);
+            toggleModal('modal-lock-setup');
+            showToast("Master PIN berhasil diaktifkan!", "success");
+        }
+
+        function removeMasterPin() {
+            localStorage.removeItem('drive_master_pin');
+            toggleModal('modal-lock-setup');
+            showToast("Master PIN dinonaktifkan.", "info");
+        }
+
+        function checkAppLockOnStart() {
+            const savedPin = localStorage.getItem('drive_master_pin');
+            if (savedPin) {
+                document.getElementById('modal-app-lock').classList.remove('hidden');
+            }
+        }
+
+        function verifyMasterPin() {
+            const input = document.getElementById('unlock-pin').value.trim();
+            const savedPin = localStorage.getItem('drive_master_pin');
+            if (input === savedPin) {
+                document.getElementById('modal-app-lock').classList.add('hidden');
+                showToast("Aplikasi berhasil dibuka.", "success");
+            } else {
+                showToast("PIN salah!", "error");
+            }
+        }
+
+        function showQRCodeModal(fileName, url) {
+            toggleModal('modal-qrcode');
+            document.getElementById('qr-filename').innerText = fileName;
+            const box = document.getElementById('qrcode-box');
+            box.innerHTML = '';
+            if (typeof QRCode !== 'undefined') {
+                new QRCode(box, {
+                    text: url || 'https://drive.google.com',
+                    width: 130,
+                    height: 130,
+                    colorDark: "#0f172a",
+                    colorLight: "#ffffff",
+                    correctLevel: QRCode.CorrectLevel.H
+                });
+            } else {
+                box.innerText = "QR Lib tidak tersedia";
+            }
+        }
+
+        function zipSelectedFilesModal() {
+            toggleModal('modal-zip');
+        }
+
+        async function processAndUploadZip() {
+            const fileInput = document.getElementById('zip-file-input');
+            const zipName = document.getElementById('zip-filename').value.trim() || 'arsip.zip';
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showToast("Pilih setidaknya satu file untuk dikompresi.", "warning");
+                return;
+            }
+
+            const zip = new JSZip();
+            for (let i = 0; i < fileInput.files.length; i++) {
+                const f = fileInput.files[i];
+                zip.file(f.name, f);
+            }
+
+            showToast("Sedang mengompresi file ke ZIP...", "info");
+            try {
+                const content = await zip.generateAsync({ type: "blob" });
+                const zipFile = new File([content], zipName, { type: "application/zip" });
+                toggleModal('modal-zip');
+                await handleFiles([zipFile]);
+                showToast("File ZIP berhasil dibuat dan dimasukkan ke antrean!", "success");
+            } catch (err) {
+                showToast("Gagal membuat file ZIP.", "error");
+            }
+        }
+
+        function changeWallpaperOpacity(val) {
+            config.wallpaperOpacity = val;
+            localStorage.setItem('gdrive_wallpaper_opacity', val);
+            applyWallpaperOpacity();
+        }
+
+        function applyWallpaperOpacity() {
+            const layer = document.getElementById('video-overlay-layer');
+            if (layer) {
+                layer.style.setProperty('--overlay-opacity', config.wallpaperOpacity);
+                layer.style.setProperty('--overlay-opacity-2', String(parseFloat(config.wallpaperOpacity) - 0.2));
+            }
+            const slider = document.getElementById('wallpaper-opacity-slider');
+            if (slider) slider.value = config.wallpaperOpacity;
+
+            if (config.videoUrl) {
+                const videoSrc = document.getElementById('bg-video-source');
+                const videoEl = document.getElementById('bg-video-element');
+                if (videoSrc && videoEl && videoSrc.src !== config.videoUrl) {
+                    videoSrc.src = config.videoUrl;
+                    videoEl.load();
+                }
+            }
+        }
+
+        async function sendTelegramNotification(msg) {
+            if (!config.telegramToken || !config.telegramChatId) return;
+            try {
+                await fetch(`https://api.telegram.org/bot${config.telegramToken}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chat_id: config.telegramChatId, text: msg, parse_mode: 'Markdown' })
+                });
+            } catch (e) {
+                console.warn("Gagal mengirim notifikasi Telegram", e);
+            }
+        }
+
+        function exportConfigBackup() {
+            const backupData = {
+                clientId: config.clientId,
+                telegramToken: config.telegramToken,
+                telegramChatId: config.telegramChatId,
+                videoUrl: config.videoUrl,
+                accounts: accounts.map(a => ({ id: a.id, name: a.name, email: a.email }))
+            };
+            const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'drivesync-config-backup.json';
+            a.click();
+            showToast("Konfigurasi berhasil diekspor!", "success");
+        }
+
+        function importConfigBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.clientId) {
+                        config.clientId = data.clientId;
+                        localStorage.setItem('gdrive_client_id', config.clientId);
+                        document.getElementById('cfg-client-id').value = config.clientId;
                     }
-                };
-                request.onsuccess = (e) => {
-                    db = e.target.result;
-                    const idbStatus = document.getElementById('idb-status');
-                    if (idbStatus) idbStatus.innerText = 'IndexedDB Aktif';
-                    resolve(db);
-                };
-                request.onerror = (e) => {
-                    console.error('IndexedDB error:', e.target.error);
-                    reject(e.target.error);
-                };
-            });
-        }
-
-        function saveFileToDB(fileData) {
-            return new Promise((resolve, reject) => {
-                if (!db) return reject('Database not ready');
-                const tx = db.transaction('sync_queue', 'readwrite');
-                const store = tx.objectStore('sync_queue');
-                const req = store.put(fileData);
-                req.onsuccess = () => resolve(true);
-                req.onerror = (e) => reject(e.target.error);
-            });
-        }
-
-        function getAllFilesFromDB() {
-            return new Promise((resolve) => {
-                if (!db) return resolve([]);
-                const tx = db.transaction('sync_queue', 'readonly');
-                const store = tx.objectStore('sync_queue');
-                const req = store.getAll();
-                req.onsuccess = () => resolve(req.result || []);
-                req.onerror = () => resolve([]);
-            });
-        }
-
-        function deleteFileFromDB(id) {
-            return new Promise((resolve) => {
-                if (!db) return resolve(false);
-                const tx = db.transaction('sync_queue', 'readwrite');
-                const store = tx.objectStore('sync_queue');
-                const req = store.delete(id);
-                req.onsuccess = () => resolve(true);
-                req.onerror = () => resolve(false);
-            });
-        }
-
-        // --- FITUR BARU: Kosongkan Antrean ---
-        async function clearAllQueue() {
-            if (!db) return;
-            const allFiles = await getAllFilesFromDB();
-            const pendingFiles = allFiles.filter(f => f.status === 'pending' || f.status === 'uploading');
-            
-            if (pendingFiles.length === 0) {
-                showToast("Antrean sudah kosong.", "info");
-                return;
-            }
-
-            if (!confirm(`Apakah Anda yakin ingin menghapus ${pendingFiles.length} file dari antrean offline?`)) return;
-
-            for (const file of pendingFiles) {
-                await deleteFileFromDB(file.id);
-            }
-            
-            await loadFilesFromDB();
-            showToast(`Berhasil menghapus ${pendingFiles.length} file dari antrean.`, "success");
-        }
-
-        // --- FITUR BARU: Copy Link ---
-        function copyLink(url) {
-            if (!url || url === 'null') {
-                showToast("Tautan tidak tersedia untuk file ini.", "warning");
-                return;
-            }
-            navigator.clipboard.writeText(url).then(() => {
-                showToast("Tautan file berhasil disalin ke clipboard!", "success");
-            }).catch(() => {
-                showToast("Gagal menyalin tautan.", "error");
-            });
+                    if (data.telegramToken) { config.telegramToken = data.telegramToken; localStorage.setItem('gdrive_tg_token', data.telegramToken); document.getElementById('cfg-tg-token').value = data.telegramToken; }
+                    if (data.telegramChatId) { config.telegramChatId = data.telegramChatId; localStorage.setItem('gdrive_tg_chatid', data.telegramChatId); document.getElementById('cfg-tg-chatid').value = data.telegramChatId; }
+                    if (data.videoUrl) { config.videoUrl = data.videoUrl; localStorage.setItem('gdrive_video_url', data.videoUrl); document.getElementById('cfg-video-url').value = data.videoUrl; }
+                    showToast("Konfigurasi berhasil dipulihkan!", "success");
+                    toggleModal('modal-config');
+                    applyWallpaperOpacity();
+                } catch (err) {
+                    showToast("File backup tidak valid.", "error");
+                }
+            };
+            reader.readAsText(file);
         }
 
         function renderAccountsList() {
@@ -532,53 +914,52 @@
 
             accounts.forEach(acc => {
                 const hasValidToken = isTokenValid(acc);
-                if (hasValidToken) connectedCount++;
-
-                let statusBadge = `
-                    <button onclick="connectGoogleAccount('${acc.id}')" class="text-[9px] bg-blue-500/30 text-blue-200 hover:bg-blue-500 hover:text-white border border-blue-400/50 px-2 py-1 rounded font-bold transition">
-                        <i class="fa-solid fa-plug mr-1"></i>Hubungkan
-                    </button>`;
-
                 if (hasValidToken) {
-                    statusBadge = `
-                        <span class="text-[9px] bg-emerald-500/30 text-emerald-200 border border-emerald-400/50 px-2 py-1 rounded font-bold shadow-sm">
-                            <i class="fa-solid fa-check mr-1"></i>Terhubung
-                        </span>`;
+                    connectedCount++;
+                    if (!acc.quota) fetchAccountQuota(acc);
                 }
 
+                let quotaInfo = '';
+                if (acc.quota && acc.quota.limit > 0) {
+                    const usagePercent = Math.round((acc.quota.usage / acc.quota.limit) * 100);
+                    quotaInfo = `
+                        <div class="mt-1.5 w-full bg-slate-800 rounded-full h-1 overflow-hidden">
+                            <div class="bg-blue-400 h-1 rounded-full" style="width: ${usagePercent}%"></div>
+                        </div>
+                        <p class="text-[9px] text-slate-400 mt-0.5">${formatBytes(acc.quota.usage)} / ${formatBytes(acc.quota.limit)} (${usagePercent}%)</p>
+                    `;
+                }
+
+                let statusBadge = hasValidToken 
+                    ? `<span class="text-[9px] bg-emerald-500/30 text-emerald-200 border border-emerald-400/40 px-2.5 py-1 rounded-md font-bold">Terhubung</span>`
+                    : `<button onclick="connectGoogleAccount('${acc.id}')" class="text-[9px] bg-blue-500/30 text-blue-200 hover:bg-blue-500 hover:text-white border border-blue-400/40 px-2.5 py-1 rounded-md font-bold transition">Hubungkan</button>`;
+
                 html += `
-                    <div class="p-2.5 bg-slate-900/50 border border-white/10 rounded-xl flex items-center justify-between text-xs backdrop-blur-sm transition hover:bg-slate-800/60">
-                        <div class="flex items-center gap-3 overflow-hidden pr-2">
-                            <div class="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm flex-shrink-0 border ${acc.color} shadow-inner">
-                                <i class="fa-solid ${acc.icon}"></i>
+                    <div class="p-3 bg-slate-900/60 border border-white/10 rounded-xl flex flex-col gap-1.5 backdrop-blur-sm transition hover:bg-slate-800/80">
+                        <div class="flex items-center justify-between text-xs">
+                            <div class="flex items-center gap-2.5 overflow-hidden pr-2">
+                                <div class="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs flex-shrink-0 border ${acc.color}">
+                                    <i class="fa-solid ${acc.icon}"></i>
+                                </div>
+                                <div class="truncate">
+                                    <p class="font-bold text-white truncate">${escapeHtml(acc.name)}</p>
+                                    <p class="text-[10px] text-slate-300 truncate">${escapeHtml(acc.email)}</p>
+                                </div>
                             </div>
-                            <div class="truncate">
-                                <p class="font-bold text-white truncate drop-shadow-md">${escapeHtml(acc.name)}</p>
-                                <p class="text-[10px] text-slate-300 truncate font-medium">${escapeHtml(acc.email)}</p>
+                            <div class="flex items-center gap-1 flex-shrink-0">
+                                ${statusBadge}
+                                ${acc.token ? `<button onclick="disconnectGoogleAccount('${acc.id}')" title="Putuskan" class="text-slate-400 hover:text-red-400 p-1"><i class="fa-solid fa-link-slash text-xs"></i></button>` : ''}
                             </div>
                         </div>
-                        <div class="flex items-center gap-1 flex-shrink-0">
-                            ${statusBadge}
-                            ${acc.token ? `
-                                <button onclick="disconnectGoogleAccount('${acc.id}')" title="Putuskan Akses" class="text-xs text-slate-400 hover:text-red-400 p-1.5 hover:bg-white/5 rounded transition">
-                                    <i class="fa-solid fa-link-slash"></i>
-                                </button>
-                            ` : ''}
-                        </div>
+                        ${quotaInfo}
                     </div>
                 `;
             });
 
             container.innerHTML = html;
-
             if (badge) {
-                if (connectedCount > 0) {
-                    badge.className = "bg-green-500/30 text-green-200 px-2.5 py-1 rounded-md text-[10px] font-bold border border-green-500/40 shadow-sm";
-                    badge.innerText = `${connectedCount}/5 Terhubung`;
-                } else {
-                    badge.className = "bg-amber-500/30 text-amber-200 px-2.5 py-1 rounded-md text-[10px] font-bold border border-amber-500/40 shadow-sm";
-                    badge.innerText = "Belum Terhubung";
-                }
+                badge.className = connectedCount > 0 ? "bg-emerald-500/20 text-emerald-300 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-emerald-500/30" : "bg-amber-500/20 text-amber-300 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-amber-500/30";
+                badge.innerText = `${connectedCount}/5 Terhubung`;
             }
         }
 
@@ -593,16 +974,11 @@
                             showToast("Gagal Login ke Google: " + response.error, "error");
                             return;
                         }
-
                         const targetId = window.pendingTargetAccountId || accounts.find(a => !isTokenValid(a))?.id || 'poco1';
                         const acc = accounts.find(a => a.id === targetId);
-
                         if (acc) {
                             acc.token = response.access_token;
-                            const expiresIn = response.expires_in ? parseInt(response.expires_in) : 3600;
-                            acc.tokenExpiresAt = Date.now() + (expiresIn * 1000);
-
-                            // Fetch user profile email
+                            acc.tokenExpiresAt = Date.now() + (parseInt(response.expires_in || 3600) * 1000);
                             try {
                                 const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
                                     headers: { Authorization: `Bearer ${response.access_token}` }
@@ -610,135 +986,108 @@
                                 if (userInfoRes.ok) {
                                     const profile = await userInfoRes.json();
                                     acc.email = profile.email || acc.email;
-                                    acc.userProfile = profile;
                                 }
-                            } catch (e) {
-                                console.warn("Tidak dapat mengambil email profil:", e);
-                            }
-
+                            } catch (e) {}
                             localStorage.setItem('gdrive_multi_accounts', JSON.stringify(accounts));
                             renderAccountsList();
-                            showToast(`Berhasil menghubungkan ${acc.name} (${acc.email})!`, "success");
+                            showToast(`Berhasil menghubungkan ${acc.name}!`, "success");
                             window.pendingTargetAccountId = null;
-
                             if (isOnline && !isSyncing) processQueue();
                         }
                     },
                 });
-            } catch (err) {
-                console.warn("Google GIS Client belum siap.", err);
-            }
+            } catch (err) {}
         }
 
         function connectGoogleAccount(targetAccId) {
-            if (!config.clientId) {
-                toggleModal('modal-config');
-                showToast("Masukkan Google Client ID terlebih dahulu.", "warning");
-                return;
-            }
-
+            if (!config.clientId) { toggleModal('modal-config'); showToast("Masukkan Client ID terlebih dahulu.", "warning"); return; }
             window.pendingTargetAccountId = targetAccId;
-
-            if (!tokenClient) {
-                initGoogleAuth();
-            }
-
-            if (tokenClient) {
-                tokenClient.requestAccessToken({ prompt: 'select_account' });
-            } else {
-                showToast("Sistem Login Google sedang dimuat, coba sekejap lagi.", "info");
-            }
+            if (!tokenClient) initGoogleAuth();
+            if (tokenClient) tokenClient.requestAccessToken({ prompt: 'select_account' });
         }
 
         function disconnectGoogleAccount(accountId) {
             const acc = accounts.find(a => a.id === accountId);
             if (acc) {
-                acc.token = null;
-                acc.tokenExpiresAt = 0;
-                acc.email = 'Belum Terhubung';
+                acc.token = null; acc.tokenExpiresAt = 0; acc.email = 'Belum Terhubung'; acc.quota = null;
                 localStorage.setItem('gdrive_multi_accounts', JSON.stringify(accounts));
                 renderAccountsList();
-                showToast(`Koneksi ${acc.name} telah diputuskan.`, "info");
+                showToast(`Koneksi ${acc.name} diputuskan.`, "info");
             }
         }
 
         function determineTargetAccount(file) {
-            const routeModeEl = document.getElementById('smart-route-mode');
-            const routeMode = routeModeEl ? routeModeEl.value : 'auto';
-
+            const routeMode = document.getElementById('smart-route-mode')?.value || 'auto';
             if (routeMode !== 'auto') {
                 const matched = accounts.find(a => a.id === routeMode);
                 if (matched) return matched;
             }
-
             const type = file.type || '';
             const name = file.name.toLowerCase();
-
-            if (type.startsWith('image/') || type.startsWith('video/') || name.match(/\.(jpg|jpeg|png|gif|webp|mp4|mkv|mov|avi)$/i)) {
-                return accounts[0]; // Poco 1
-            } else if (type.startsWith('audio/') || name.match(/\.(mp3|wav|flac|aac|ogg|m4a)$/i)) {
-                return accounts[1]; // Poco 2
-            } else if (type.includes('pdf') || type.includes('document') || type.includes('sheet') || name.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt)$/i)) {
-                return accounts[2]; // Poco 3
-            } else if (name.match(/\.(zip|rar|7z|tar|gz|iso)$/i)) {
-                return accounts[3]; // Poco 4
-            } else {
-                return accounts[4]; // Poco 5
-            }
+            if (type.startsWith('image/') || type.startsWith('video/') || name.match(/\.(jpg|jpeg|png|gif|webp|mp4|mkv|mov)$/i)) return accounts[0];
+            if (type.startsWith('audio/') || name.match(/\.(mp3|wav|flac|aac)$/i)) return accounts[1];
+            if (type.includes('pdf') || type.includes('document') || name.match(/\.(pdf|doc|docx|xls|xlsx|txt)$/i)) return accounts[2];
+            if (name.match(/\.(zip|rar|7z|tar)$/i)) return accounts[3];
+            return accounts[4];
         }
 
         async function handleFiles(fileList) {
             if (!fileList || fileList.length === 0) return;
+            const useDeduplication = document.getElementById('deduplication-toggle')?.checked ?? true;
+            const existingFiles = useDeduplication ? await getAllFilesFromDB() : [];
 
             let addedCount = 0;
+            let skippedCount = 0;
+
             for (let i = 0; i < fileList.length; i++) {
                 const file = fileList[i];
-                const targetAccount = determineTargetAccount(file);
+                
+                // Smart Deduplication check
+                if (useDeduplication) {
+                    const isDuplicate = existingFiles.some(f => f.name === file.name && f.size === file.size && f.status !== 'failed');
+                    if (isDuplicate) {
+                        skippedCount++;
+                        continue;
+                    }
+                }
 
+                const targetAccount = determineTargetAccount(file);
                 const fileData = {
-                    id: 'file_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8),
-                    name: file.name,
+                    id: 'file_' + Date.now + '_' + Math.random().toString(36).substring(2, 8) + '_' + i,
+                    name: file.webkitRelativePath || file.name,
                     size: file.size,
                     type: file.type,
                     targetAccountId: targetAccount.id,
-                    targetAccountName: targetAccount.name,
+                    folderId: currentFolderId,
                     fileBlob: file,
                     status: 'pending',
+                    retryCount: 0,
                     createdAt: new Date().toISOString()
                 };
-
                 await saveFileToDB(fileData);
                 addedCount++;
             }
 
             await loadFilesFromDB();
+            if (addedCount > 0) showToast(`${addedCount} file ditambahkan ke antrean.${skippedCount > 0 ? ` (${skippedCount} duplikat dilewati)` : ''}`, "success");
+            else if (skippedCount > 0) showToast(`${skippedCount} file duplikat dilewati (Hash match).`, "info");
 
-            if (isOnline && !isSyncing) {
-                processQueue();
-            } else if (!isOnline) {
-                showToast(`${addedCount} file tersimpan di memori laptop (Mode Offline). Akan terunggah otomatis saat online.`, "warning");
-            }
+            if (isOnline && !isSyncing) processQueue();
         }
 
         async function loadFilesFromDB() {
             if (!db) return;
             const files = await getAllFilesFromDB();
-
             const queueList = document.getElementById('queue-list');
             const driveList = document.getElementById('drive-list');
             if (!queueList || !driveList) return;
 
-            queueList.innerHTML = '';
-            driveList.innerHTML = '';
-
-            let pendingCount = 0;
-            let uploadedCount = 0;
-            let totalPendingSize = 0;
+            queueList.innerHTML = ''; driveList.innerHTML = '';
+            let pendingCount = 0, uploadedCount = 0, totalPendingSize = 0;
 
             files.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
             files.forEach(f => {
-                if (f.status === 'pending' || f.status === 'uploading') {
+                if (f.status === 'pending' || f.status === 'uploading' || f.status === 'failed') {
                     pendingCount++;
                     totalPendingSize += f.size;
                     renderQueueUI(f, queueList);
@@ -748,71 +1097,44 @@
                 }
             });
 
-            const qBadge = document.getElementById('queue-badge');
-            const dBadge = document.getElementById('drive-badge');
-            const statPending = document.getElementById('stat-pending-count');
-            const statUploaded = document.getElementById('stat-uploaded-count');
-            const totalQueueSize = document.getElementById('total-queue-size');
+            document.getElementById('queue-badge').innerText = `${pendingCount} File`;
+            document.getElementById('drive-badge').innerText = `${uploadedCount} File`;
+            document.getElementById('stat-pending-count').innerText = `${pendingCount} File`;
+            document.getElementById('stat-uploaded-count').innerText = `${uploadedCount} File`;
+            document.getElementById('total-queue-size').innerText = formatBytes(totalPendingSize);
 
-            if (qBadge) qBadge.innerText = `${pendingCount} File`;
-            if (dBadge) dBadge.innerText = `${uploadedCount} File`;
-            if (statPending) statPending.innerText = `${pendingCount} File`;
-            if (statUploaded) statUploaded.innerText = `${uploadedCount} File`;
-            if (totalQueueSize) totalQueueSize.innerText = formatBytes(totalPendingSize);
+            if (pendingCount === 0) queueList.innerHTML = `<div class="h-full flex flex-col items-center justify-center text-slate-400 space-y-2 py-10"><i class="fa-solid fa-box-open text-3xl opacity-40"></i><p class="text-xs" data-i18n="no_queue">Tidak ada antrean.</p></div>`;
+            if (uploadedCount === 0) driveList.innerHTML = `<div class="h-full flex flex-col items-center justify-center text-slate-400 space-y-2 py-10"><i class="fa-solid fa-cloud-check text-3xl opacity-40"></i><p class="text-xs" data-i18n="no_cloud">Belum ada file terunggah.</p></div>`;
 
-            if (pendingCount === 0) {
-                queueList.innerHTML = `
-                    <div id="empty-queue" class="h-full flex flex-col items-center justify-center text-slate-400 space-y-3 py-10">
-                        <i class="fa-solid fa-box-open text-4xl opacity-50 drop-shadow"></i>
-                        <p class="text-sm font-medium drop-shadow-sm">Tidak ada antrean file offline.</p>
-                    </div>`;
-            }
-            if (uploadedCount === 0) {
-                driveList.innerHTML = `
-                    <div id="empty-drive" class="h-full flex flex-col items-center justify-center text-slate-400 space-y-3 py-10">
-                        <i class="fa-solid fa-cloud-check text-4xl opacity-50 drop-shadow"></i>
-                        <p class="text-sm font-medium drop-shadow-sm">Belum ada file terunggah ke Drive.</p>
-                    </div>`;
-            }
-
-            if (activeView === 'explorer') {
-                renderExplorerUI();
-            }
+            if (activeView === 'explorer') renderExplorerUI();
         }
 
         function renderQueueUI(fileData, container) {
             const item = document.createElement('div');
             item.id = fileData.id;
-            item.className = 'bg-slate-900/60 backdrop-blur-md p-3.5 rounded-xl border border-white/10 flex flex-col gap-2.5 transition-all shadow-sm';
-            
-            const badgeColor = fileData.status === 'uploading' ? 'bg-blue-500/30 text-blue-200 border-blue-400/40' : 'bg-amber-500/30 text-amber-200 border-amber-400/40';
-            const badgeText = fileData.status === 'uploading' ? 'Mengunggah...' : 'Pending (Offline)';
-
+            item.className = 'bg-slate-900/60 backdrop-blur-md p-3.5 rounded-xl border border-white/10 flex flex-col gap-2 shadow-sm';
             const targetAcc = accounts.find(a => a.id === fileData.targetAccountId) || accounts[4];
+            const statusText = fileData.status === 'failed' ? `Gagal (${fileData.retryCount}/3)` : (fileData.status === 'uploading' ? 'Mengunggah...' : 'Pending');
 
             item.innerHTML = `
                 <div class="flex justify-between items-start gap-3">
                     <div class="flex items-center gap-3 overflow-hidden">
-                        <div class="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
-                            <i class="fa-solid fa-file-arrow-up text-amber-400 text-sm flex-shrink-0 drop-shadow"></i>
+                        <div class="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
+                            <i class="fa-solid fa-file-arrow-up text-amber-400 text-sm"></i>
                         </div>
                         <div class="truncate">
-                            <p class="text-xs font-bold text-white truncate drop-shadow-sm">${escapeHtml(fileData.name)}</p>
-                            <p class="text-[10px] text-slate-400 font-medium">${formatBytes(fileData.size)} &bull; IndexedDB Saved</p>
+                            <p class="text-xs font-bold text-white truncate">${escapeHtml(fileData.name)}</p>
+                            <p class="text-[10px] text-slate-400">${formatBytes(fileData.size)}</p>
                         </div>
                     </div>
-                    <span class="status-badge ${badgeColor} border px-2 py-1 rounded-md text-[10px] font-bold whitespace-nowrap shadow-sm">${badgeText}</span>
+                    <span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded text-[10px] font-bold">${statusText}</span>
                 </div>
-                
-                <div class="flex items-center justify-between text-[11px] pt-2 border-t border-white/10">
-                    <span class="text-slate-400 text-[10px] font-medium">Target:</span>
-                    <span class="px-2 py-1 rounded-md border text-[10px] font-bold ${targetAcc.color} bg-opacity-40">
-                        <i class="fa-solid ${targetAcc.icon} mr-1"></i> ${targetAcc.name}
-                    </span>
+                <div class="flex justify-between items-center text-[11px] pt-1.5 border-t border-white/10">
+                    <span class="text-slate-400 text-[10px]">Tujuan:</span>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold ${targetAcc.color}">${targetAcc.name}</span>
                 </div>
-
-                <div class="w-full bg-slate-800/80 rounded-full h-1.5 ${fileData.status === 'uploading' ? '' : 'hidden'} progress-container mt-1.5 border border-white/5 overflow-hidden">
-                    <div class="bg-blue-400 h-1.5 rounded-full progress-bar-fill w-0 shadow-[0_0_8px_rgba(96,165,250,0.8)]"></div>
+                <div class="w-full bg-slate-800 rounded-full h-1.5 ${fileData.status === 'uploading' ? '' : 'hidden'} overflow-hidden">
+                    <div class="bg-blue-400 h-1.5 rounded-full progress-bar-fill w-0"></div>
                 </div>
             `;
             container.appendChild(item);
@@ -820,49 +1142,55 @@
 
         function renderDriveUI(fileData, container) {
             const item = document.createElement('div');
-            item.className = 'bg-slate-900/60 backdrop-blur-md p-3.5 rounded-xl border border-white/10 flex justify-between items-center gap-3 shadow-sm hover:bg-slate-800/60 transition group';
+            item.className = 'bg-slate-900/60 backdrop-blur-md p-3.5 rounded-xl border border-white/10 flex justify-between items-center gap-3 shadow-sm hover:bg-slate-800/80 transition';
             const targetAcc = accounts.find(a => a.id === fileData.targetAccountId) || accounts[4];
 
             item.innerHTML = `
                 <div class="flex items-center gap-3 overflow-hidden">
-                    <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                        <i class="fa-solid fa-cloud-circle-check text-emerald-400 text-sm flex-shrink-0 drop-shadow"></i>
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
+                        <i class="fa-solid fa-cloud-circle-check text-emerald-400 text-sm"></i>
                     </div>
                     <div class="truncate">
-                        <p class="text-xs font-bold text-white truncate drop-shadow-sm">${escapeHtml(fileData.name)}</p>
-                        <p class="text-[10px] text-slate-400 font-medium">${formatBytes(fileData.size)} &bull; di <span class="text-blue-300 font-semibold">${targetAcc.name}</span></p>
+                        <p class="text-xs font-bold text-white truncate">${escapeHtml(fileData.name)}</p>
+                        <p class="text-[10px] text-slate-400">${formatBytes(fileData.size)} &bull; <span class="text-blue-300">${targetAcc.name}</span></p>
                     </div>
                 </div>
-                <div class="flex items-center gap-1 flex-shrink-0 opacity-80 group-hover:opacity-100 transition">
-                    <!-- NEW FEATURE: Copy link di riwayat -->
-                    <button onclick="copyLink('${fileData.webViewLink}')" title="Salin Tautan" class="text-slate-300 hover:text-blue-400 hover:bg-white/10 p-2 rounded-lg text-xs transition">
-                        <i class="fa-solid fa-link"></i>
-                    </button>
-                    <button onclick="removeUploadedRecord('${fileData.id}')" title="Hapus catatan" class="text-slate-400 hover:text-red-400 hover:bg-white/10 p-2 rounded-lg text-xs transition">
-                        <i class="fa-solid fa-trash-can"></i>
-                    </button>
+                <div class="flex items-center gap-1">
+                    <button onclick="showQRCodeModal('${escapeHtml(fileData.name)}', '${fileData.webViewLink}')" title="QR Code" class="text-slate-300 hover:text-purple-400 p-2 rounded-lg text-xs"><i class="fa-solid fa-qrcode"></i></button>
+                    <button onclick="copyLink('${fileData.webViewLink}')" title="Salin Tautan" class="text-slate-300 hover:text-blue-400 p-2 rounded-lg text-xs"><i class="fa-solid fa-link"></i></button>
+                    <button onclick="deleteFileFromCloudAndDB('${fileData.id}', '${fileData.driveFileId}', '${fileData.targetAccountId}')" title="Hapus Permanen dari Cloud" class="text-slate-400 hover:text-red-400 p-2 rounded-lg text-xs"><i class="fa-solid fa-trash-can"></i></button>
                 </div>
             `;
             container.appendChild(item);
         }
 
+        async function deleteFileFromCloudAndDB(recordId, driveFileId, accountId) {
+            if (!confirm("Hapus file ini secara permanen dari Google Drive dan lokal?")) return;
+            const acc = accounts.find(a => a.id === accountId);
+            if (acc && isTokenValid(acc) && driveFileId) {
+                try {
+                    await fetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}`, {
+                        method: 'DELETE',
+                        headers: { Authorization: `Bearer ${acc.token}` }
+                    });
+                } catch (e) {}
+            }
+            await deleteFileFromDB(recordId);
+            await loadFilesFromDB();
+            showToast("File berhasil dihapus.", "success");
+        }
+
         async function processQueue() {
             if (!isOnline || isSyncing || !db) return;
-
             const allFiles = await getAllFilesFromDB();
-            const pendingFiles = allFiles.filter(f => f.status === 'pending');
-
-            if (pendingFiles.length === 0) {
-                isSyncing = false;
-                return;
-            }
+            const pendingFiles = allFiles.filter(f => f.status === 'pending' || f.status === 'failed');
+            if (pendingFiles.length === 0) { isSyncing = false; return; }
 
             isSyncing = true;
             const currentFile = pendingFiles[0];
             const targetAccount = accounts.find(a => a.id === currentFile.targetAccountId) || accounts[4];
 
             if (!isTokenValid(targetAccount)) {
-                showToast(`Akun ${targetAccount.name} belum terhubung. Klik 'Hubungkan' di sidebar.`, "warning");
                 isSyncing = false;
                 return;
             }
@@ -875,7 +1203,6 @@
             const progBar = element ? element.querySelector('.progress-bar-fill') : null;
 
             try {
-                // Upload file to real Google Drive via REST API v3
                 const driveResult = await uploadToRealGoogleDrive(currentFile, targetAccount.token, (progress) => {
                     if (progBar) progBar.style.width = `${progress}%`;
                 });
@@ -883,61 +1210,49 @@
                 currentFile.status = 'uploaded';
                 currentFile.driveFileId = driveResult.id || null;
                 currentFile.webViewLink = driveResult.webViewLink || null;
-                
-                // Free up local file Blob storage to save laptop disk space!
                 currentFile.fileBlob = null; 
 
                 await saveFileToDB(currentFile);
-                showToast(`"${currentFile.name}" berhasil terunggah ke ${targetAccount.name}!`, "success");
-
+                showToast(`"${currentFile.name}" berhasil terunggah!`, "success");
+                sendTelegramNotification(`🚀 *DriveSync Pro Upload Berhasil*\n\nFile: \`${currentFile.name}\`\nAkun: ${targetAccount.name}`);
             } catch (err) {
-                console.error("Upload error:", err);
-                currentFile.status = 'pending';
+                currentFile.retryCount = (currentFile.retryCount || 0) + 1;
+                if (currentFile.retryCount >= 3) {
+                    currentFile.status = 'failed';
+                    showToast(`Gagal mengunggah ${currentFile.name} setelah 3 kali percobaan.`, "error");
+                    sendTelegramNotification(`❌ *DriveSync Pro Upload Gagal*\n\nFile: \`${currentFile.name}\` telah gagal setelah 3x percobaan.`);
+                } else {
+                    currentFile.status = 'pending';
+                }
                 await saveFileToDB(currentFile);
-                showToast(`Gagal mengunggah ${currentFile.name}: ${err.message}`, "error");
             } finally {
                 isSyncing = false;
                 await loadFilesFromDB();
-                if (isOnline) setTimeout(processQueue, 300);
+                if (isOnline) setTimeout(processQueue, 500);
             }
         }
 
         function uploadToRealGoogleDrive(fileData, token, onProgress) {
             return new Promise((resolve, reject) => {
-                const metadata = {
-                    name: fileData.name,
-                    mimeType: fileData.type || 'application/octet-stream'
-                };
-
+                const metadata = { name: fileData.name, mimeType: fileData.type || 'application/octet-stream' };
                 const formData = new FormData();
                 formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
                 formData.append('file', fileData.fileBlob);
 
                 const xhr = new XMLHttpRequest();
-                xhr.open('POST', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink,webContentLink');
+                xhr.open('POST', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink');
                 xhr.setRequestHeader('Authorization', 'Bearer ' + token);
 
                 xhr.upload.onprogress = (e) => {
-                    if (e.lengthComputable) {
-                        const percent = Math.round((e.loaded / e.total) * 100);
-                        onProgress(percent);
-                    }
+                    if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
                 };
 
                 xhr.onload = () => {
                     if (xhr.status >= 200 && xhr.status < 300) {
-                        try {
-                            const res = JSON.parse(xhr.responseText);
-                            resolve(res);
-                        } catch (err) {
-                            resolve({ id: 'res_' + Date.now() });
-                        }
-                    } else {
-                        reject(new Error(`API Error ${xhr.status}`));
-                    }
+                        try { resolve(JSON.parse(xhr.responseText)); } catch (e) { resolve({ id: 'res_' + Date.now() }); }
+                    } else { reject(new Error('API Error')); }
                 };
-
-                xhr.onerror = () => reject(new Error('Network connection failed'));
+                xhr.onerror = () => reject(new Error('Network error'));
                 xhr.send(formData);
             });
         }
@@ -951,47 +1266,36 @@
             const pageTitle = document.getElementById('page-title');
             const pageSubtitle = document.getElementById('page-subtitle');
 
-            const activeClass = "w-full flex items-center gap-3 bg-blue-600/40 border border-blue-500/40 text-white px-4 py-3 rounded-xl font-bold text-sm transition text-left backdrop-blur-md shadow-md";
-            const inactiveClass = "w-full flex items-center gap-3 text-slate-300 hover:bg-white/10 hover:text-white border border-transparent hover:border-white/10 px-4 py-3 rounded-xl font-medium text-sm transition text-left";
+            const activeClass = "w-full flex items-center gap-3.5 bg-blue-600/40 border border-blue-500/40 text-white px-4 py-3.5 rounded-xl font-bold text-sm transition text-left backdrop-blur-md shadow-md";
+            const inactiveClass = "w-full flex items-center gap-3.5 text-slate-300 hover:bg-white/10 hover:text-white border border-transparent hover:border-white/10 px-4 py-3.5 rounded-xl font-medium text-sm transition text-left";
 
             if (viewName === 'dashboard') {
-                if (dashEl) dashEl.classList.remove('hidden');
-                if (expEl) expEl.classList.add('hidden');
-                if (navDash) navDash.className = activeClass;
-                if (navExp) navExp.className = inactiveClass;
-                if (pageTitle) pageTitle.innerText = "Sinkronisasi Google Drive Asli";
-                if (pageSubtitle) pageSubtitle.innerText = "Pilih file offline. Aplikasi otomatis mengunggah langsung ke Google Drive Anda begitu internet tersambung.";
+                dashEl.classList.remove('hidden'); expEl.classList.add('hidden');
+                navDash.className = activeClass; navExp.className = inactiveClass;
+                pageTitle.setAttribute('data-i18n', 'header_title');
+                pageSubtitle.setAttribute('data-i18n', 'header_subtitle');
             } else {
-                if (dashEl) dashEl.classList.add('hidden');
-                if (expEl) expEl.classList.remove('hidden');
-                if (navDash) navDash.className = inactiveClass;
-                if (navExp) navExp.className = activeClass;
-                if (pageTitle) pageTitle.innerText = "Jelajah File Cloud (Drive Explorer)";
-                if (pageSubtitle) pageSubtitle.innerText = "Lihat dan unduh kembali file yang telah tersimpan di Google Drive Anda.";
+                dashEl.classList.add('hidden'); expEl.classList.remove('hidden');
+                navDash.className = inactiveClass; navExp.className = activeClass;
+                pageTitle.removeAttribute('data-i18n');
+                pageSubtitle.removeAttribute('data-i18n');
+                pageTitle.innerText = currentLang === 'id' ? "Jelajah File Cloud (Drive Explorer)" : "Cloud File Explorer";
+                pageSubtitle.innerText = currentLang === 'id' ? "Kelola folder dan file yang tersimpan di Google Drive Anda secara terstruktur." : "Manage folders and files stored in your Google Drive structured.";
                 renderExplorerAccountFilters();
                 renderExplorerUI();
             }
+            applyTranslations();
         }
 
         function renderExplorerAccountFilters() {
             const container = document.getElementById('explorer-account-filters');
             if (!container) return;
 
-            let html = `
-                <button onclick="filterExplorerByAccount('all')" class="exp-acc-btn text-xs px-4 py-2 rounded-xl font-bold whitespace-nowrap transition shadow-sm ${currentAccountFilter === 'all' ? 'bg-blue-600 text-white border border-blue-500 shadow-blue-900/50' : 'bg-slate-900/60 border border-white/20 text-slate-300 hover:text-white hover:bg-slate-800 backdrop-blur-md'}">
-                    🌐 Semua Akun
-                </button>
-            `;
-
+            let html = `<button onclick="filterExplorerByAccount('all')" class="exp-acc-btn text-xs px-4 py-2.5 rounded-xl font-bold whitespace-nowrap transition ${currentAccountFilter === 'all' ? 'bg-blue-600 text-white border border-blue-500 shadow-md' : 'bg-slate-900/70 border border-white/20 text-slate-300 hover:text-white'}">🌐 ${currentLang === 'id' ? 'Semua Akun' : 'All Accounts'}</button>`;
             accounts.forEach(acc => {
                 const isActive = currentAccountFilter === acc.id;
-                html += `
-                    <button onclick="filterExplorerByAccount('${acc.id}')" class="exp-acc-btn text-xs px-3.5 py-2 rounded-xl font-bold whitespace-nowrap transition shadow-sm ${isActive ? `bg-blue-600 text-white border border-blue-500` : `bg-slate-900/60 border border-white/20 text-slate-300 hover:text-white hover:bg-slate-800 backdrop-blur-md`}">
-                        <i class="fa-solid ${acc.icon} mr-1.5 text-[11px]"></i> ${acc.name.split(' ')[0]} ${acc.name.split(' ')[1] || ''}
-                    </button>
-                `;
+                html += `<button onclick="filterExplorerByAccount('${acc.id}')" class="exp-acc-btn text-xs px-3.5 py-2.5 rounded-xl font-bold whitespace-nowrap transition ${isActive ? 'bg-blue-600 text-white border border-blue-500' : 'bg-slate-900/70 border border-white/20 text-slate-300 hover:text-white'}"><i class="fa-solid ${acc.icon} mr-1"></i> ${acc.name.split(' ')[0]}</button>`;
             });
-
             container.innerHTML = html;
         }
 
@@ -1003,16 +1307,8 @@
 
         function setExplorerLayout(layout) {
             explorerLayout = layout;
-            const btnGrid = document.getElementById('btn-view-grid');
-            const btnList = document.getElementById('btn-view-list');
-
-            if (layout === 'grid') {
-                if (btnGrid) btnGrid.className = "px-3 py-1.5 bg-blue-600 text-white rounded-lg transition shadow-sm";
-                if (btnList) btnList.className = "px-3 py-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition";
-            } else {
-                if (btnList) btnList.className = "px-3 py-1.5 bg-blue-600 text-white rounded-lg transition shadow-sm";
-                if (btnGrid) btnGrid.className = "px-3 py-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition";
-            }
+            document.getElementById('btn-view-grid').className = layout === 'grid' ? "px-3 py-1.5 bg-blue-600 text-white rounded-lg transition" : "px-3 py-1.5 text-slate-400 hover:text-white rounded-lg transition";
+            document.getElementById('btn-view-list').className = layout === 'list' ? "px-3 py-1.5 bg-blue-600 text-white rounded-lg transition" : "px-3 py-1.5 text-slate-400 hover:text-white rounded-lg transition";
             renderExplorerUI();
         }
 
@@ -1020,99 +1316,84 @@
             if (!db) return;
             const allFiles = await getAllFilesFromDB();
             const uploadedFiles = allFiles.filter(f => f.status === 'uploaded');
+            const allFolders = await getAllFoldersFromDB();
+
             const container = document.getElementById('explorer-container');
             const searchInput = document.getElementById('explorer-search');
             const searchKeyword = searchInput ? searchInput.value.toLowerCase() : '';
-
             if (!container) return;
 
-            let filtered = uploadedFiles.filter(f => {
+            let filteredFolders = allFolders.filter(f => f.parentId === currentFolderId && (currentAccountFilter === 'all' || f.targetAccountId === currentAccountFilter) && f.name.toLowerCase().includes(searchKeyword));
+            let filteredFiles = uploadedFiles.filter(f => {
+                const matchFolder = (f.folderId || 'root') === currentFolderId;
                 const matchAcc = currentAccountFilter === 'all' || f.targetAccountId === currentAccountFilter;
                 const matchSearch = f.name.toLowerCase().includes(searchKeyword);
-                return matchAcc && matchSearch;
+                return matchFolder && matchAcc && matchSearch;
             });
 
-            if (filtered.length === 0) {
-                container.className = "min-h-[300px] flex flex-col items-center justify-center text-slate-400 col-span-full space-y-3 py-12 glass-panel rounded-2xl";
-                container.innerHTML = `
-                    <i class="fa-solid fa-folder-open text-5xl mb-2 opacity-50 drop-shadow"></i>
-                    <p class="text-sm font-bold">Tidak ada file terunggah ditemukan.</p>
-                    <p class="text-xs text-slate-400">Unggah file terlebih dahulu di Dashboard Sync.</p>
-                `;
+            if (filteredFolders.length === 0 && filteredFiles.length === 0) {
+                container.className = "min-h-[340px] flex flex-col items-center justify-center text-slate-400 col-span-full space-y-3 py-12";
+                container.innerHTML = `<i class="fa-solid fa-folder-open text-5xl mb-1 opacity-30"></i><p class="text-sm font-bold">${currentLang === 'id' ? 'Folder ini kosong.' : 'This folder is empty.'}</p>`;
                 return;
             }
 
-            if (explorerLayout === 'grid') {
-                container.className = "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5";
-                container.innerHTML = filtered.map(f => renderExplorerGridItem(f)).join('');
-            } else {
-                container.className = "flex flex-col gap-3 col-span-full";
-                container.innerHTML = filtered.map(f => renderExplorerListItem(f)).join('');
+            container.className = explorerLayout === 'grid' ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5" : "flex flex-col gap-3 col-span-full";
+            
+            let html = '';
+            filteredFolders.forEach(folder => {
+                const targetAcc = accounts.find(a => a.id === folder.targetAccountId) || accounts[4];
+                html += `
+                    <div ondblclick="navigateToFolder('${folder.id}', '${escapeHtml(folder.name)}')" class="bg-slate-900/70 border border-white/10 rounded-2xl p-4 flex flex-col justify-between hover:border-emerald-400/50 transition cursor-pointer group shadow-md">
+                        <div class="flex items-center justify-between mb-3">
+                            <i class="fa-solid fa-folder text-3xl text-amber-400 group-hover:scale-110 transition-transform"></i>
+                            <button onclick="deleteFolder('${folder.id}')" title="Hapus" class="text-slate-400 hover:text-red-400 p-1"><i class="fa-solid fa-trash-can text-xs"></i></button>
+                        </div>
+                        <div>
+                            <p class="text-xs font-bold text-white truncate">${escapeHtml(folder.name)}</p>
+                            <span class="text-[9px] text-slate-400">${targetAcc.name.split(' ')[0]}</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            filteredFiles.forEach(file => {
+                html += renderExplorerGridItem(file);
+            });
+
+            container.innerHTML = html;
+        }
+
+        async function deleteFolder(folderId) {
+            if (!confirm("Hapus folder ini? File di dalamnya akan dipindahkan ke root.")) return;
+            const allFiles = await getAllFilesFromDB();
+            for (const f of allFiles) {
+                if (f.folderId === folderId) { f.folderId = 'root'; await saveFileToDB(f); }
             }
+            await deleteFolderFromDB(folderId);
+            showToast("Folder dihapus.", "success");
+            renderExplorerUI();
         }
 
         function renderExplorerGridItem(fileData) {
             const targetAcc = accounts.find(a => a.id === fileData.targetAccountId) || accounts[4];
-            let thumbnailContent = `<i class="fa-solid fa-file-lines text-4xl text-blue-400 drop-shadow-lg"></i>`;
-            
-            if (fileData.type.startsWith('image/')) {
-                thumbnailContent = `<i class="fa-solid fa-image text-4xl text-purple-400 drop-shadow-lg"></i>`;
-            } else if (fileData.type.startsWith('audio/')) {
-                thumbnailContent = `<i class="fa-solid fa-music text-4xl text-emerald-400 drop-shadow-lg"></i>`;
-            } else if (fileData.type.startsWith('video/')) {
-                thumbnailContent = `<i class="fa-solid fa-film text-4xl text-pink-400 drop-shadow-lg"></i>`;
-            }
-
             return `
-                <div class="bg-slate-900/70 backdrop-blur-md border border-white/10 rounded-2xl flex flex-col overflow-hidden hover:border-blue-400/50 hover:shadow-[0_0_15px_rgba(59,130,246,0.3)] transition-all group relative">
-                    <div class="h-32 bg-slate-950/60 flex items-center justify-center overflow-hidden relative cursor-pointer" onclick="openPreviewModal('${fileData.id}')">
-                        ${thumbnailContent}
-                        <div class="absolute inset-0 bg-black/20 group-hover:bg-transparent transition"></div>
+                <div class="bg-slate-900/70 border border-white/10 rounded-2xl flex flex-col overflow-hidden hover:border-blue-400/50 transition group shadow-md">
+                    <div class="h-28 bg-slate-950/60 flex items-center justify-center cursor-pointer relative" onclick="openPreviewModal('${fileData.id}')">
+                        <i class="fa-solid fa-file-lines text-3xl text-blue-400 group-hover:scale-110 transition-transform"></i>
                     </div>
-                    <div class="p-3.5 flex flex-col justify-between flex-1 gap-3">
+                    <div class="p-3.5 flex flex-col justify-between flex-1 gap-2">
                         <div>
-                            <p class="text-xs font-bold text-white truncate drop-shadow-sm" title="${escapeHtml(fileData.name)}">${escapeHtml(fileData.name)}</p>
-                            <p class="text-[10px] text-slate-400 mt-1 font-medium">${formatBytes(fileData.size)}</p>
+                            <p class="text-xs font-bold text-white truncate">${escapeHtml(fileData.name)}</p>
+                            <p class="text-[10px] text-slate-400">${formatBytes(fileData.size)}</p>
                         </div>
                         <div class="flex items-center justify-between pt-2 border-t border-white/10">
-                            <span class="text-[9px] px-2 py-1 rounded-md border font-bold ${targetAcc.color} bg-opacity-40 shadow-sm">
-                                ${targetAcc.name.split(' ')[0]}
-                            </span>
-                            <div class="flex items-center gap-1 opacity-80 group-hover:opacity-100">
-                                <button onclick="copyLink('${fileData.webViewLink}')" title="Salin Link" class="text-slate-300 hover:text-blue-400 bg-white/5 hover:bg-white/10 rounded-md text-[10px] p-1.5 transition">
-                                    <i class="fa-solid fa-link"></i>
-                                </button>
-                                <button onclick="downloadOrOpenDrive('${fileData.id}')" title="Buka di Google Drive" class="text-slate-300 hover:text-blue-400 bg-white/5 hover:bg-white/10 rounded-md text-[10px] p-1.5 transition">
-                                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                                </button>
+                            <span class="text-[9px] px-2 py-0.5 rounded border font-bold ${targetAcc.color}">${targetAcc.name.split(' ')[0]}</span>
+                            <div class="flex items-center gap-1">
+                                <button onclick="showQRCodeModal('${escapeHtml(fileData.name)}', '${fileData.webViewLink}')" title="QR" class="text-slate-300 hover:text-purple-400 p-1 text-xs"><i class="fa-solid fa-qrcode"></i></button>
+                                <button onclick="copyLink('${fileData.webViewLink}')" title="Salin" class="text-slate-300 hover:text-blue-400 p-1 text-xs"><i class="fa-solid fa-link"></i></button>
+                                <button onclick="downloadOrOpenDrive('${fileData.id}')" title="Buka" class="text-slate-300 hover:text-blue-400 p-1 text-xs"><i class="fa-solid fa-arrow-up-right-from-square"></i></button>
                             </div>
                         </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        function renderExplorerListItem(fileData) {
-            const targetAcc = accounts.find(a => a.id === fileData.targetAccountId) || accounts[4];
-
-            return `
-                <div class="bg-slate-900/70 backdrop-blur-md p-4 rounded-xl border border-white/10 flex items-center justify-between gap-4 hover:border-blue-400/50 hover:shadow-[0_0_15px_rgba(59,130,246,0.2)] transition-all group">
-                    <div class="flex items-center gap-4 overflow-hidden cursor-pointer flex-1" onclick="openPreviewModal('${fileData.id}')">
-                        <div class="w-10 h-10 rounded-xl bg-slate-950/80 border border-white/10 flex items-center justify-center text-blue-400 flex-shrink-0 shadow-inner">
-                            <i class="fa-solid ${targetAcc.icon} text-lg"></i>
-                        </div>
-                        <div class="truncate">
-                            <p class="text-sm font-bold text-white truncate drop-shadow-sm">${escapeHtml(fileData.name)}</p>
-                            <p class="text-[11px] text-slate-400 font-medium mt-0.5">${formatBytes(fileData.size)} &bull; ${targetAcc.name}</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-2 flex-shrink-0 opacity-90 group-hover:opacity-100">
-                        <button onclick="copyLink('${fileData.webViewLink}')" title="Salin Tautan" class="px-3 py-2 text-slate-300 hover:text-blue-400 bg-white/10 hover:bg-white/20 border border-white/5 rounded-xl transition text-xs backdrop-blur-sm">
-                            <i class="fa-solid fa-link"></i>
-                        </button>
-                        <button onclick="downloadOrOpenDrive('${fileData.id}')" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded-xl font-bold transition flex items-center gap-2 shadow-lg shadow-blue-900/40">
-                            <i class="fa-solid fa-arrow-up-right-from-square"></i> Google Drive
-                        </button>
                     </div>
                 </div>
             `;
@@ -1123,217 +1404,226 @@
             const fileData = allFiles.find(f => f.id === id);
             if (!fileData) return;
 
-            const targetAcc = accounts.find(a => a.id === fileData.targetAccountId) || accounts[4];
-            
-            const filenameEl = document.getElementById('preview-filename');
-            const infoEl = document.getElementById('preview-file-info');
-            if (filenameEl) filenameEl.innerText = fileData.name;
-            if (infoEl) infoEl.innerHTML = `Ukuran: <strong>${formatBytes(fileData.size)}</strong> &bull; Tersimpan di <span class="text-blue-400 font-bold">${targetAcc.name}</span>`;
-            
-            const mediaBox = document.getElementById('preview-media-box');
-            if (!mediaBox) return;
-
-            mediaBox.innerHTML = `
-                <div class="flex flex-col items-center gap-3 text-slate-300 p-8 text-center w-full">
-                    <div class="w-20 h-20 bg-blue-500/10 border border-blue-500/30 rounded-full flex items-center justify-center mb-2 animate-pulse shadow-[0_0_20px_rgba(59,130,246,0.3)]">
-                        <i class="fa-brands fa-google-drive text-4xl text-blue-400 drop-shadow-md"></i>
-                    </div>
-                    <p class="text-sm font-bold text-white drop-shadow-sm">File ini tersimpan di Google Drive Asli</p>
-                    <p class="text-[11px] text-slate-400 max-w-xs font-medium">Memori fisik di laptop telah dibebaskan. Anda dapat melihat dan mengunduhnya langsung di Google Drive Anda.</p>
-                </div>
-            `;
-
-            const btnDownload = document.getElementById('btn-download-preview');
-            if (btnDownload) {
-                btnDownload.onclick = () => downloadOrOpenDrive(id);
-            }
-
-            const btnCopy = document.getElementById('btn-copy-preview');
-            if (btnCopy) {
-                btnCopy.onclick = () => copyLink(fileData.webViewLink);
-            }
-
+            document.getElementById('preview-filename').innerText = fileData.name;
+            document.getElementById('preview-media-box').innerHTML = `<div class="text-center"><i class="fa-brands fa-google-drive text-4xl text-blue-400 mb-2"></i><p class="text-sm font-bold text-white">${escapeHtml(fileData.name)}</p></div>`;
+            document.getElementById('btn-download-preview').onclick = () => downloadOrOpenDrive(id);
+            document.getElementById('btn-copy-preview').onclick = () => copyLink(fileData.webViewLink);
             toggleModal('modal-preview');
         }
 
         async function downloadOrOpenDrive(id) {
             const allFiles = await getAllFilesFromDB();
             const fileData = allFiles.find(f => f.id === id);
-            if (!fileData) return;
-
-            if (fileData.webViewLink) {
-                window.open(fileData.webViewLink, '_blank');
-            } else if (fileData.driveFileId) {
-                window.open(`https://drive.google.com/file/d/${fileData.driveFileId}/view`, '_blank');
-            } else {
-                showToast("Menghubungkan ke Google Drive...", "info");
-            }
+            if (fileData && fileData.webViewLink) window.open(fileData.webViewLink, '_blank');
         }
 
         function updateNetworkStatus(online) {
             isOnline = online;
             const netStatus = document.getElementById('network-status');
-            const netPing = document.getElementById('network-ping');
-            const netDot = document.getElementById('network-dot');
-            const netText = document.getElementById('network-text');
-
             if (online) {
-                if (netStatus) netStatus.className = "flex items-center gap-3 p-3 rounded-xl bg-green-500/20 border border-green-500/30 text-green-300 font-bold text-xs transition-all duration-300 backdrop-blur-md shadow-sm";
-                if (netPing) netPing.className = "animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75";
-                if (netDot) netDot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]";
-                if (netText) netText.innerText = "Sinyal Online (Terhubung)";
-                showToast("Sinyal Internet Kembali. Memulai unggah otomatis...", "success");
+                netStatus.className = "flex items-center gap-3 p-3 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 font-medium text-xs";
+                netStatus.innerHTML = `<div class="relative flex h-2.5 w-2.5"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span></div><span>Sinyal Online (Terhubung)</span>`;
                 processQueue();
             } else {
-                if (netStatus) netStatus.className = "flex items-center gap-3 p-3 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-300 font-bold text-xs transition-all duration-300 backdrop-blur-md shadow-sm";
-                if (netPing) netPing.className = "hidden";
-                if (netDot) netDot.className = "relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]";
-                if (netText) netText.innerText = "Sinyal Offline (Terputus)";
-                showToast("Mode Offline Aktif. File baru akan disimpan di memori laptop dulu.", "warning");
+                netStatus.className = "flex items-center gap-3 p-3 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-300 font-medium text-xs";
+                netStatus.innerHTML = `<div class="relative flex h-2.5 w-2.5"><span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span></div><span>Sinyal Offline (Terputus)</span>`;
             }
         }
 
         function showToast(msg, type = "info") {
             const toast = document.getElementById('toast-container');
-            const toastMsg = document.getElementById('toast-msg');
-            const toastIcon = document.getElementById('toast-icon');
-
-            if (!toast || !toastMsg) return;
-
-            toastMsg.innerText = msg;
-            
-            if (type === 'success') {
-                toast.className = "bg-green-600/30 backdrop-blur-md border border-green-500/50 text-green-100 p-4 rounded-xl flex items-center justify-between gap-3 text-xs md:text-sm shadow-lg shadow-green-900/30";
-                if (toastIcon) toastIcon.className = "fa-solid fa-circle-check text-lg text-green-400 drop-shadow";
-            } else if (type === 'warning') {
-                toast.className = "bg-amber-600/30 backdrop-blur-md border border-amber-500/50 text-amber-100 p-4 rounded-xl flex items-center justify-between gap-3 text-xs md:text-sm shadow-lg shadow-amber-900/30";
-                if (toastIcon) toastIcon.className = "fa-solid fa-triangle-exclamation text-lg text-amber-400 drop-shadow";
-            } else if (type === 'error') {
-                toast.className = "bg-red-600/30 backdrop-blur-md border border-red-500/50 text-red-100 p-4 rounded-xl flex items-center justify-between gap-3 text-xs md:text-sm shadow-lg shadow-red-900/30";
-                if (toastIcon) toastIcon.className = "fa-solid fa-circle-xmark text-lg text-red-400 drop-shadow";
-            } else {
-                toast.className = "bg-blue-600/30 backdrop-blur-md border border-blue-500/50 text-blue-100 p-4 rounded-xl flex items-center justify-between gap-3 text-xs md:text-sm shadow-lg shadow-blue-900/30";
-                if (toastIcon) toastIcon.className = "fa-solid fa-circle-info text-lg text-blue-400 drop-shadow";
-            }
-
+            document.getElementById('toast-msg').innerText = msg;
+            toast.className = type === 'success' ? "bg-emerald-600/30 border border-emerald-500/50 text-emerald-100 p-4 rounded-xl flex items-center justify-between gap-3 text-xs md:text-sm shadow-xl" : "bg-blue-600/30 border border-blue-500/50 text-blue-100 p-4 rounded-xl flex items-center justify-between gap-3 text-xs md:text-sm shadow-xl";
             toast.classList.remove('hidden');
-
-            if (window.toastTimeout) clearTimeout(window.toastTimeout);
-            window.toastTimeout = setTimeout(() => hideToast(), 5000);
+            setTimeout(() => toast.classList.add('hidden'), 4000);
         }
 
-        function hideToast() {
-            const toast = document.getElementById('toast-container');
-            if (toast) toast.classList.add('hidden');
-        }
-
-        function toggleModal(modalId) {
-            const el = document.getElementById(modalId);
-            if (el) el.classList.toggle('hidden');
-        }
+        function hideToast() { document.getElementById('toast-container').classList.add('hidden'); }
+        function toggleModal(modalId) { document.getElementById(modalId).classList.toggle('hidden'); }
 
         function saveApiConfig() {
-            const clientIdEl = document.getElementById('cfg-client-id');
-            if (clientIdEl) config.clientId = clientIdEl.value.trim();
+            config.clientId = document.getElementById('cfg-client-id').value.trim();
+            config.telegramToken = document.getElementById('cfg-tg-token').value.trim();
+            config.telegramChatId = document.getElementById('cfg-tg-chatid').value.trim();
+            config.videoUrl = document.getElementById('cfg-video-url').value.trim();
 
             localStorage.setItem('gdrive_client_id', config.clientId);
-            toggleModal('modal-config');
-            showToast("Google Client ID berhasil disimpan!", "success");
+            localStorage.setItem('gdrive_tg_token', config.telegramToken);
+            localStorage.setItem('gdrive_tg_chatid', config.telegramChatId);
+            localStorage.setItem('gdrive_video_url', config.videoUrl);
 
-            if (config.clientId) {
-                initGoogleAuth();
-            }
+            toggleModal('modal-config');
+            showToast("Pengaturan disimpan!", "success");
+            applyWallpaperOpacity();
+            if (config.clientId) initGoogleAuth();
         }
 
         function triggerManualSync() {
-            if (!isOnline) {
-                showToast("Laptop Anda sedang Offline. Hubungkan internet untuk unggah.", "warning");
-                return;
-            }
-            showToast("Memulai proses unggah antrean...", "info");
+            if (!isOnline) { showToast("Sedang offline.", "warning"); return; }
             processQueue();
         }
 
-        function formatBytes(bytes, decimals = 2) {
+        function formatBytes(bytes) {
             if (!bytes || bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const dm = decimals < 0 ? 0 : decimals;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+            const k = 1024, i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + ['Bytes', 'KB', 'MB', 'GB', 'TB'][i];
         }
 
         function escapeHtml(str) {
             if (!str) return '';
-            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }
 
-        async function removeUploadedRecord(id) {
-            await deleteFileFromDB(id);
-            await loadFilesFromDB();
-            showToast("Catatan riwayat berhasil dihapus.", "info");
+        // --- INDEXEDDB STORAGE WRAPPER ---
+        function initIndexedDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('DriveSyncProDB', 2);
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => { db = request.result; resolve(db); };
+                request.onupgradeneeded = (event) => {
+                    const database = event.target.result;
+                    if (!database.objectStoreNames.contains('files')) {
+                        database.createObjectStore('files', { keyPath: 'id' });
+                    }
+                    if (!database.objectStoreNames.contains('folders')) {
+                        database.createObjectStore('folders', { keyPath: 'id' });
+                    }
+                };
+            });
+        }
+
+        function saveFileToDB(fileData) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['files'], 'readwrite');
+                const store = transaction.objectStore('files');
+                const request = store.put(fileData);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        function getAllFilesFromDB() {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['files'], 'readonly');
+                const store = transaction.objectStore('files');
+                const request = store.getAll();
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        function deleteFileFromDB(id) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['files'], 'readwrite');
+                const store = transaction.objectStore('files');
+                const request = store.delete(id);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        function getAllFoldersFromDB() {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['folders'], 'readonly');
+                const store = transaction.objectStore('folders');
+                const request = store.getAll();
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        function saveFolderToDB(folderData) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['folders'], 'readwrite');
+                const store = transaction.objectStore('folders');
+                const request = store.put(folderData);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        function deleteFolderFromDB(id) {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(['folders'], 'readwrite');
+                const store = transaction.objectStore('folders');
+                const request = store.delete(id);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function createNewFolder() {
+            const name = document.getElementById('new-folder-name').value.trim();
+            const targetAccountId = document.getElementById('new-folder-account').value;
+            if (!name) { showToast("Nama folder tidak boleh kosong.", "warning"); return; }
+
+            const folderData = {
+                id: 'folder_' + Date.now(),
+                name: name,
+                parentId: currentFolderId,
+                targetAccountId: targetAccountId,
+                createdAt: new Date().toISOString()
+            };
+            await saveFolderToDB(folderData);
+            toggleModal('modal-folder');
+            document.getElementById('new-folder-name').value = '';
+            showToast("Folder berhasil dibuat!", "success");
+            renderExplorerUI();
+        }
+
+        function navigateToFolder(folderId, folderName = '') {
+            currentFolderId = folderId;
+            const breadcrumbEl = document.getElementById('breadcrumb-current');
+            if (folderId === 'root') {
+                breadcrumbEl.innerText = '';
+            } else {
+                breadcrumbEl.innerText = ` / ${folderName}`;
+            }
+            renderExplorerUI();
         }
 
         window.addEventListener('online', () => updateNetworkStatus(true));
         window.addEventListener('offline', () => updateNetworkStatus(false));
 
         window.addEventListener('DOMContentLoaded', async () => {
-            const cfgClientId = document.getElementById('cfg-client-id');
-            if (cfgClientId) cfgClientId.value = config.clientId;
+            applyTranslations();
+            document.getElementById('lang-toggle-btn').innerText = currentLang.toUpperCase();
+            applyWallpaperOpacity();
+            if (document.getElementById('cfg-client-id')) document.getElementById('cfg-client-id').value = config.clientId;
+            if (document.getElementById('cfg-tg-token')) document.getElementById('cfg-tg-token').value = config.telegramToken;
+            if (document.getElementById('cfg-tg-chatid')) document.getElementById('cfg-tg-chatid').value = config.telegramChatId;
+            if (document.getElementById('cfg-video-url')) document.getElementById('cfg-video-url').value = config.videoUrl;
 
-            try {
-                await initIndexedDB();
-                await loadFilesFromDB();
-            } catch (err) {
-                console.error("Gagal inisialisasi IndexedDB:", err);
-            }
-
+            await initIndexedDB();
+            initStorageChart();
+            checkAppLockOnStart();
+            await loadFilesFromDB();
             renderAccountsList();
 
             const dropZone = document.getElementById('drop-zone');
             const fileInput = document.getElementById('file-input');
+            const folderInput = document.getElementById('folder-input');
 
             if (dropZone) {
-                ['dragenter', 'dragover'].forEach(eventName => {
-                    dropZone.addEventListener(eventName, (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        dropZone.classList.add('dragover');
-                    }, false);
-                });
+                ['dragenter', 'dragover'].forEach(e => dropZone.addEventListener(e, (ev) => { ev.preventDefault(); dropZone.classList.add('dragover'); }));
+                ['dragleave', 'drop'].forEach(e => dropZone.addEventListener(e, (ev) => { ev.preventDefault(); dropZone.classList.remove('dragover'); }));
+                dropZone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files));
+            }
 
-                ['dragleave', 'drop'].forEach(eventName => {
-                    dropZone.addEventListener(eventName, (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        dropZone.classList.remove('dragover');
-                    }, false);
-                });
-
-                dropZone.addEventListener('drop', (e) => {
-                    const dt = e.dataTransfer;
-                    handleFiles(dt.files);
+            const explorerDropArea = document.getElementById('explorer-drop-area');
+            if (explorerDropArea) {
+                ['dragenter', 'dragover'].forEach(e => explorerDropArea.addEventListener(e, (ev) => { ev.preventDefault(); explorerDropArea.classList.add('border-blue-500', 'bg-blue-500/10'); }));
+                ['dragleave', 'drop'].forEach(e => explorerDropArea.addEventListener(e, (ev) => { ev.preventDefault(); explorerDropArea.classList.remove('border-blue-500', 'bg-blue-500/10'); }));
+                explorerDropArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) handleFiles(e.dataTransfer.files);
                 });
             }
 
-            if (fileInput) {
-                fileInput.addEventListener('change', (e) => {
-                    handleFiles(e.target.files);
-                    fileInput.value = '';
-                });
-            }
-
-            if (config.clientId) {
-                initGoogleAuth();
-            } else {
-                setTimeout(() => {
-                    showToast("Atur Google Client ID di Pengaturan untuk menghubungkan Drive Asli.", "info");
-                }, 1000);
-            }
-
-            if (isOnline) {
-                processQueue();
-            }
+            if (fileInput) fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+            if (folderInput) folderInput.addEventListener('change', (e) => handleFiles(e.target.files));
+            if (config.clientId) initGoogleAuth();
+            if (isOnline) processQueue();
         });
     </script>
 </body>
