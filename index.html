@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="id" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Satya Bara Argayoen — Kartu Identitas Digital</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #090d16 0%, #0f172a 100%);
+        }
+        .card-shadow {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 35px rgba(59, 130, 246, 0.08);
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(51, 65, 85, 0.8);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(59, 130, 246, 0.5);
+        }
+    </style>
+</head>
+<body class="h-full min-h-screen flex flex-col items-center justify-center p-4 sm:p-6 text-slate-100 selection:bg-blue-500 selection:text-slate-950">
+
+    <div class="w-full max-w-lg bg-slate-900/95 backdrop-blur-2xl border border-slate-800/90 rounded-3xl card-shadow p-6 sm:p-8 space-y-6 relative overflow-hidden">
+        
+        <!-- Decorative Glow Backgrounds -->
+        <div class="absolute -top-24 -right-24 w-52 h-52 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-24 -left-24 w-52 h-52 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="flex flex-col items-center text-center space-y-4 relative z-10">
+            <div class="relative group">
+                <div class="absolute -inset-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-600 rounded-2xl blur opacity-70 group-hover:opacity-100 transition duration-300"></div>
+                <div class="relative w-24 h-24 rounded-2xl bg-slate-950 border border-slate-700/80 shadow-inner flex items-center justify-center">
+                    <span class="text-3xl font-bold font-mono tracking-wider bg-gradient-to-r from-blue-400 to-indigo-300 bg-clip-text text-transparent">SBA</span>
+                </div>
+                <span class="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 border-2 border-slate-900 rounded-full shadow" title="Active"></span>
+            </div>
+
+            <!-- Name and Class -->
+            <div class="space-y-1.5">
+                <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center justify-center gap-1.5">
+                    Satya Bara Argayoen
+                    <svg class="w-5 h-5 text-blue-400 inline shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                </h1>
+                <div class="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-mono font-medium">
+                    <i data-lucide="graduation-cap" class="w-3.5 h-3.5"></i>
+                    XI TKJ B &bull; Teknik Komputer & Jaringan
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-3 relative z-10">
+            <div class="flex items-center gap-2 text-xs font-mono font-semibold uppercase tracking-wider text-slate-400 px-1">
+                <i data-lucide="compass" class="w-4 h-4 text-amber-400"></i>
+                <span>Cita-Cita</span>
+            </div>
+            <div class="p-4 rounded-2xl bg-slate-800/40 border border-slate-800 space-y-2">
+                <p class="text-xs sm:text-sm text-slate-300 font-light leading-relaxed">
+                    Menjadi seorang <span class="text-white font-medium">Network Engineer & IT Infrastructure Specialist</span> profesional yang andal, serta berkontribusi dalam pengembangan teknologi jaringan komputer modern.
+                </p>
+            </div>
+        </div>
+
+        <div class="space-y-3 relative z-10">
+            <div class="flex items-center gap-2 text-xs font-mono font-semibold uppercase tracking-wider text-slate-400 px-1">
+                <i data-lucide="heart" class="w-4 h-4 text-pink-400"></i>
+                <span>Hobi & Ketertarikan</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div class="p-3 rounded-xl bg-slate-800/50 border border-slate-700/40 flex flex-col items-center text-center gap-1.5 hover:border-blue-500/40 transition-all">
+                    <div class="p-2 rounded-lg bg-blue-500/10 text-blue-400">
+                        <i data-lucide="bike" class="w-4 h-4"></i>
+                    </div>
+                    <span class="text-xs font-medium text-slate-200 font-mono">Touring Motor</span>
+                </div>
+
+                <div class="p-3 rounded-xl bg-slate-800/50 border border-slate-700/40 flex flex-col items-center text-center gap-1.5 hover:border-blue-500/40 transition-all">
+                    <div class="p-2 rounded-lg bg-amber-500/10 text-amber-400">
+                        <i data-lucide="wrench" class="w-4 h-4"></i>
+                    </div>
+                    <span class="text-xs font-medium text-slate-200 font-mono">Modif Motor Matic</span>
+                </div>
+
+                <div class="p-3 rounded-xl bg-slate-800/50 border border-slate-700/40 flex flex-col items-center text-center gap-1.5 hover:border-blue-500/40 transition-all">
+                    <div class="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
+                        <i data-lucide="code-2" class="w-4 h-4"></i>
+                    </div>
+                    <span class="text-xs font-medium text-slate-200 font-mono">Eksplorasi Teknologi</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="space-y-3 relative z-10">
+            <div class="flex items-center gap-2 text-xs font-mono font-semibold uppercase tracking-wider text-slate-400 px-1">
+                <i data-lucide="briefcase" class="w-4 h-4 text-emerald-400"></i>
+                <span>Minat Dunia Kerja & Kuliah</span>
+            </div>
+            <div class="p-4 rounded-2xl bg-slate-800/40 border border-slate-800 space-y-3 text-xs sm:text-sm text-slate-300 font-light">
+                <div class="flex items-start gap-2.5">
+                    <i data-lucide="server" class="w-4 h-4 text-blue-400 mt-0.5 shrink-0"></i>
+                    <div>
+                        <strong class="text-white font-medium block mb-0.5">Dunia Kerja</strong>
+                        Tertarik berkarier sebagai Network Administrator, Server Engineer, maupun IT Infrastructure Specialist.
+                    </div>
+                </div>
+                <div class="flex items-start gap-2.5">
+                    <i data-lucide="book-open" class="w-4 h-4 text-indigo-400 mt-0.5 shrink-0"></i>
+                    <div>
+                        <strong class="text-white font-medium block mb-0.5">Kuliah</strong>
+                        Merencanakan lanjut studi ke Perguruan Tinggi mengambil jurusan Teknik Informatika, Sistem Informasi, atau Teknik Komputer.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="pt-2 text-center border-t border-slate-800/80 font-mono text-[11px] text-slate-500">
+            Satya Bara Argayoen &bull; XII TKJ B &bull; 2026
+        </div>
+
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+    </script>
+</body>
+</html>
